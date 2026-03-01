@@ -1,0 +1,9 @@
+[server]
+port = 8080
+uploads_dir = "./uploads"
+
+[retention]
+# Delete audit log entries older than this many days
+audit_days = 365
+# Delete non-current media files older than this many days
+scrub_days = 30

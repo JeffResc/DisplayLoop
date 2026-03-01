@@ -1,0 +1,76 @@
+{{template "layout" .}}
+
+{{define "title"}}History — DisplayLoop{{end}}
+
+{{define "content"}}
+<div class="flex items-center justify-between mb-8">
+  <h1 class="text-2xl font-bold text-white">History</h1>
+  <p class="text-sm text-gray-500">Last 200 events</p>
+</div>
+
+{{if not .Entries}}
+<div class="text-center py-24 text-gray-500">
+  <p>No history yet.</p>
+</div>
+{{else}}
+<div class="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+  <table class="w-full text-sm">
+    <thead>
+      <tr class="text-left text-xs text-gray-500 border-b border-gray-800 bg-gray-900/80">
+        <th class="px-5 py-3 font-medium">Screen</th>
+        <th class="px-5 py-3 font-medium">Event</th>
+        <th class="px-5 py-3 font-medium">Content</th>
+        <th class="px-5 py-3 font-medium">Time</th>
+        <th class="px-5 py-3 font-medium"></th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-gray-800">
+      {{range .Entries}}
+      <tr class="hover:bg-gray-800/40 transition-colors">
+        <td class="px-5 py-3 text-gray-300">
+          <a href="/screens/{{.ScreenID}}" class="hover:text-white transition-colors">{{.ScreenName}}</a>
+        </td>
+        <td class="px-5 py-3">
+          <span class="{{eventTypeClass .EventType}} text-xs font-medium px-2 py-0.5 rounded-full">
+            {{eventTypeLabel .EventType}}
+          </span>
+          {{if .Note}}
+          <span class="text-gray-600 text-xs ml-1">{{.Note}}</span>
+          {{end}}
+        </td>
+        <td class="px-5 py-3 text-gray-400">
+          {{if .MediaOrigName}}
+            {{if .MediaScrubbed}}
+              <span class="line-through text-gray-600" title="File has been scrubbed">{{.MediaOrigName}}</span>
+            {{else}}
+              {{.MediaOrigName}}
+            {{end}}
+          {{else}}&mdash;{{end}}
+        </td>
+        <td class="px-5 py-3 text-gray-500 whitespace-nowrap text-xs">
+          {{formatTime .CreatedAt}}
+        </td>
+        <td class="px-5 py-3 text-right">
+          {{if .PrevMediaID}}
+            {{if .PrevMediaScrubbed}}
+              <span class="text-xs text-gray-700 line-through italic" title="Content has been scrubbed and cannot be restored">
+                Rollback unavailable
+              </span>
+            {{else}}
+              <form method="POST" action="/screens/{{.ScreenID}}/rollback/{{.ID}}">
+                <button type="submit"
+                        onclick="return confirm('Roll back to: {{.PrevMediaOrigName}}?')"
+                        class="text-xs text-indigo-500 hover:text-indigo-300 transition-colors">
+                  Rollback
+                </button>
+              </form>
+            {{end}}
+          {{end}}
+        </td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+</div>
+{{end}}
+{{end}}

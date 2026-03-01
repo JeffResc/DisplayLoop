@@ -1,0 +1,274 @@
+{{template "layout" .}}
+
+{{define "title"}}{{.Screen.Name}} — DisplayLoop{{end}}
+
+{{define "content"}}
+<!-- Breadcrumb -->
+<div class="flex items-center gap-2 text-sm text-gray-500 mb-6">
+  <a href="/" class="hover:text-white transition-colors">Dashboard</a>
+  <span>/</span>
+  <span class="text-white">{{.Screen.Name}}</span>
+</div>
+
+<div class="flex items-start justify-between mb-6">
+  <div>
+    <h1 class="text-2xl font-bold text-white">{{.Screen.Name}}</h1>
+    <p class="text-sm text-gray-500 mt-1">{{.Screen.DisplayName}} &bull; {{.Screen.Width}}×{{.Screen.Height}} &bull; offset +{{.Screen.X}}+{{.Screen.Y}}</p>
+  </div>
+  <div class="flex items-center gap-3">
+    <!-- Enable/Disable -->
+    {{if .Screen.Enabled}}
+    <form method="POST" action="/screens/{{.Screen.ID}}/enable">
+      <input type="hidden" name="enabled" value="false">
+      <button type="submit" class="text-xs border border-gray-700 hover:border-red-600 hover:text-red-400 text-gray-400 px-3 py-1.5 rounded-lg transition-colors">
+        Disable Screen
+      </button>
+    </form>
+    {{else}}
+    <form method="POST" action="/screens/{{.Screen.ID}}/enable">
+      <input type="hidden" name="enabled" value="true">
+      <button type="submit" class="text-xs border border-green-800 hover:border-green-600 text-green-400 px-3 py-1.5 rounded-lg transition-colors">
+        Enable Screen
+      </button>
+    </form>
+    {{end}}
+    <!-- Delete -->
+    <form method="POST" action="/screens/{{.Screen.ID}}/delete"
+          onsubmit="return confirm('Remove this screen? VLC will stop.')">
+      <button type="submit" class="text-xs border border-gray-700 hover:border-red-700 hover:text-red-400 text-gray-500 px-3 py-1.5 rounded-lg transition-colors">
+        Remove
+      </button>
+    </form>
+  </div>
+</div>
+
+<!-- Status bar -->
+<div class="bg-gray-900 border border-gray-800 rounded-xl px-5 py-4 mb-6 flex items-center gap-4">
+  <span class="w-3 h-3 rounded-full flex-shrink-0
+    {{if eq .Status.Status.String "Playing"}}bg-green-400
+    {{else if eq .Status.Status.String "Off-hours"}}bg-yellow-400
+    {{else if eq .Status.Status.String "Error"}}bg-red-400
+    {{else if eq .Status.Status.String "Disconnected"}}bg-orange-400
+    {{else}}bg-gray-600{{end}}"></span>
+  <div>
+    <p class="text-sm font-medium text-white">{{.Status.Status}}</p>
+    {{if .Status.CurrentFile}}
+    <p class="text-xs text-gray-500">{{.Status.CurrentFile}}</p>
+    {{end}}
+  </div>
+  {{if .CurrentMedia}}
+  <div class="ml-auto text-right">
+    <p class="text-xs text-gray-500">Current content</p>
+    <p class="text-sm text-gray-300">{{.CurrentMedia.OriginalName}}</p>
+  </div>
+  {{end}}
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+  <!-- Left column -->
+  <div class="space-y-6">
+
+    <!-- Upload -->
+    <section class="bg-gray-900 border border-gray-800 rounded-xl p-5">
+      <h2 class="font-semibold text-white mb-4">Upload Content</h2>
+      <form method="POST" action="/screens/{{.Screen.ID}}/upload" enctype="multipart/form-data"
+            id="upload-form">
+        <label for="media-input"
+               class="flex flex-col items-center justify-center border-2 border-dashed border-gray-700 hover:border-indigo-500 rounded-lg p-8 cursor-pointer transition-colors group"
+               id="drop-zone">
+          <svg class="w-10 h-10 text-gray-600 group-hover:text-indigo-500 mb-3 transition-colors"
+               fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+              d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+          </svg>
+          <p class="text-sm text-gray-400 group-hover:text-gray-200 transition-colors">
+            Drag & drop or <span class="text-indigo-400">browse</span>
+          </p>
+          <p class="text-xs text-gray-600 mt-1">Images (JPG, PNG, GIF, WebP) or video (MP4, MKV, MOV, etc.)</p>
+          <input type="file" id="media-input" name="media" class="hidden"
+                 accept=".jpg,.jpeg,.png,.gif,.bmp,.webp,.mp4,.mkv,.avi,.mov,.wmv,.flv,.webm,.m4v"
+                 onchange="document.getElementById('upload-form').submit()">
+        </label>
+        <div id="upload-progress" class="hidden mt-3">
+          <div class="w-full bg-gray-800 rounded-full h-1.5">
+            <div class="bg-indigo-500 h-1.5 rounded-full animate-pulse w-full"></div>
+          </div>
+          <p class="text-xs text-gray-500 mt-1 text-center">Uploading…</p>
+        </div>
+      </form>
+      <script>
+        document.getElementById('media-input').addEventListener('change', function() {
+          document.getElementById('upload-progress').classList.remove('hidden');
+        });
+        const dz = document.getElementById('drop-zone');
+        dz.addEventListener('dragover', function(e) { e.preventDefault(); dz.classList.add('border-indigo-500'); });
+        dz.addEventListener('dragleave', function() { dz.classList.remove('border-indigo-500'); });
+        dz.addEventListener('drop', function(e) {
+          e.preventDefault();
+          dz.classList.remove('border-indigo-500');
+          const dt = e.dataTransfer;
+          if (dt.files.length) {
+            document.getElementById('media-input').files = dt.files;
+            document.getElementById('upload-progress').classList.remove('hidden');
+            document.getElementById('upload-form').submit();
+          }
+        });
+      </script>
+    </section>
+
+    <!-- Off-hours config -->
+    <section class="bg-gray-900 border border-gray-800 rounded-xl p-5">
+      <h2 class="font-semibold text-white mb-4">Off-Hours Mode</h2>
+      <form method="POST" action="/screens/{{.Screen.ID}}/offhours" enctype="multipart/form-data" class="space-y-4">
+        <div class="flex gap-4">
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="radio" name="off_hours_mode" value="black"
+                   {{if eq .Screen.OffHoursMode "black"}}checked{{end}}
+                   class="accent-indigo-500">
+            <span class="text-sm text-gray-300">Black screen</span>
+          </label>
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="radio" name="off_hours_mode" value="image"
+                   {{if eq .Screen.OffHoursMode "image"}}checked{{end}}
+                   class="accent-indigo-500">
+            <span class="text-sm text-gray-300">Display image</span>
+          </label>
+        </div>
+        {{if eq .Screen.OffHoursMode "image"}}
+        <div>
+          {{if .Screen.OffHoursImagePath}}
+          <p class="text-xs text-gray-500 mb-2">Current: <span class="text-gray-300">{{.Screen.OffHoursImagePath}}</span></p>
+          {{end}}
+          <label class="block text-xs text-gray-400 mb-1">Replace off-hours image</label>
+          <input type="file" name="off_hours_image" accept=".jpg,.jpeg,.png,.gif,.webp"
+                 class="text-sm text-gray-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:bg-gray-800 file:text-gray-300 hover:file:bg-gray-700">
+        </div>
+        {{else}}
+        <div class="hidden" id="off-hours-image-upload">
+          <label class="block text-xs text-gray-400 mb-1">Off-hours image</label>
+          <input type="file" name="off_hours_image" accept=".jpg,.jpeg,.png,.gif,.webp"
+                 class="text-sm text-gray-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:bg-gray-800 file:text-gray-300 hover:file:bg-gray-700">
+        </div>
+        <script>
+          document.querySelectorAll('[name="off_hours_mode"]').forEach(function(r) {
+            r.addEventListener('change', function() {
+              document.getElementById('off-hours-image-upload').classList.toggle('hidden', r.value !== 'image');
+            });
+          });
+        </script>
+        {{end}}
+        <button type="submit" class="bg-gray-800 hover:bg-gray-700 text-white text-sm px-4 py-2 rounded-lg transition-colors">
+          Save
+        </button>
+      </form>
+    </section>
+
+  </div>
+
+  <!-- Right column -->
+  <div class="space-y-6">
+
+    <!-- Operating Hours -->
+    <section class="bg-gray-900 border border-gray-800 rounded-xl p-5">
+      <h2 class="font-semibold text-white mb-4">Operating Hours</h2>
+      <form method="POST" action="/screens/{{.Screen.ID}}/hours" class="space-y-3">
+        {{range .DayOrder}}
+        {{$day := .}}
+        {{$sched := index $.WeekSchedule $day}}
+        <div class="flex items-center gap-3">
+          <label class="flex items-center gap-2 w-28 cursor-pointer">
+            <input type="checkbox" name="{{$day}}_enabled" {{if $sched.Enabled}}checked{{end}} class="accent-indigo-500">
+            <span class="text-sm text-gray-300 capitalize">{{$day}}</span>
+          </label>
+          <input type="time" name="{{$day}}_start" value="{{$sched.Start}}"
+                 class="bg-gray-800 border border-gray-700 rounded-md px-2 py-1 text-sm text-gray-200 focus:outline-none focus:border-indigo-500 w-28">
+          <span class="text-gray-600 text-xs">to</span>
+          <input type="time" name="{{$day}}_end" value="{{$sched.End}}"
+                 class="bg-gray-800 border border-gray-700 rounded-md px-2 py-1 text-sm text-gray-200 focus:outline-none focus:border-indigo-500 w-28">
+        </div>
+        {{end}}
+        <div class="pt-2">
+          <button type="submit" class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
+            Save Hours
+          </button>
+        </div>
+      </form>
+    </section>
+
+  </div>
+</div>
+
+<!-- History -->
+<section class="mt-6 bg-gray-900 border border-gray-800 rounded-xl p-5">
+  <h2 class="font-semibold text-white mb-4">History</h2>
+  {{if not .AuditLog}}
+  <p class="text-sm text-gray-600">No history yet.</p>
+  {{else}}
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="text-left text-xs text-gray-500 border-b border-gray-800">
+          <th class="pb-2 font-medium">Event</th>
+          <th class="pb-2 font-medium">Content</th>
+          <th class="pb-2 font-medium">Time</th>
+          <th class="pb-2 font-medium"></th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-800">
+        {{range .AuditLog}}
+        <tr class="group">
+          <td class="py-2.5 pr-4">
+            <span class="{{eventTypeClass .EventType}} text-xs font-medium px-2 py-0.5 rounded-full">
+              {{eventTypeLabel .EventType}}
+            </span>
+            {{if .Note}}
+            <span class="text-gray-600 text-xs ml-1">{{.Note}}</span>
+            {{end}}
+          </td>
+          <td class="py-2.5 pr-4 text-gray-300">
+            {{if .MediaOrigName}}{{.MediaOrigName}}{{else}}&mdash;{{end}}
+          </td>
+          <td class="py-2.5 pr-4 text-gray-500 whitespace-nowrap text-xs">
+            {{formatTime .CreatedAt}}
+          </td>
+          <td class="py-2.5 text-right">
+            {{if .PrevMediaID}}
+              {{if .PrevMediaScrubbed}}
+                <span class="text-xs text-gray-600 line-through italic" title="Content has been scrubbed">
+                  Rollback unavailable
+                </span>
+              {{else}}
+                <form method="POST" action="/screens/{{$.Screen.ID}}/rollback/{{.ID}}">
+                  <button type="submit"
+                          onclick="return confirm('Roll back to: {{.PrevMediaOrigName}}?')"
+                          class="text-xs text-indigo-500 hover:text-indigo-300 transition-colors">
+                    Rollback to {{.PrevMediaOrigName}}
+                  </button>
+                </form>
+              {{end}}
+            {{end}}
+          </td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+  {{end}}
+</section>
+
+<!-- SSE live status -->
+<script>
+(function() {
+  const statusDot  = document.querySelector('.screen-status-dot');
+  const statusText = document.querySelector('.screen-status-text');
+  const es = new EventSource('/api/status/stream');
+  es.onmessage = function(e) {
+    const data = JSON.parse(e.data);
+    const s = data.screens.find(function(x) { return x.id === {{.Screen.ID}}; });
+    if (!s) return;
+    // Could update status badge inline here; page reload on action handles it for simplicity.
+  };
+})();
+</script>
+{{end}}

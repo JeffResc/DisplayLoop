@@ -1,0 +1,59 @@
+{{define "layout"}}
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{block "title" .}}DisplayLoop{{end}}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = { darkMode: 'class' }</script>
+  <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+  <style>
+    [x-cloak] { display: none !important; }
+    .status-playing  { @apply bg-green-500; }
+    .status-offhours { @apply bg-yellow-500; }
+    .status-stopped  { @apply bg-gray-500; }
+    .status-error    { @apply bg-red-500; }
+  </style>
+</head>
+<body class="bg-gray-950 text-gray-100 min-h-screen">
+
+  <!-- Nav -->
+  <nav class="bg-gray-900 border-b border-gray-800">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+      <a href="/" class="text-lg font-semibold text-white tracking-tight">
+        <span class="text-indigo-400">Display</span>Loop
+      </a>
+      <div class="flex items-center gap-5 text-sm text-gray-400">
+        <a href="/" class="flex items-center gap-1.5 hover:text-white transition-colors">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75"
+              d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+          </svg>
+          Dashboard
+        </a>
+        <a href="/audit" class="flex items-center gap-1.5 hover:text-white transition-colors">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75"
+              d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          History
+        </a>
+      </div>
+    </div>
+  </nav>
+
+  <main class="max-w-7xl mx-auto px-4 py-8">
+    {{block "content" .}}{{end}}
+  </main>
+
+  <footer class="border-t border-gray-800 mt-12">
+    <div class="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between text-xs text-gray-600">
+      <span><span class="text-gray-500">Display</span>Loop</span>
+      <span class="font-mono">{{buildVersion}} &middot; {{buildCommit}}</span>
+    </div>
+  </footer>
+
+</body>
+</html>
+{{end}}

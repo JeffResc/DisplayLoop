@@ -1,0 +1,42 @@
+{{define "detect.html"}}
+{{if .Error}}
+<p class="text-red-400 text-sm mb-4">Error: {{.Error}}</p>
+{{end}}
+
+{{if not .Displays}}
+<p class="text-gray-400 text-sm">No connected displays found. Check that xrandr is available and displays are connected.</p>
+{{else}}
+<p class="text-gray-400 text-sm mb-4">Select a display to configure as a new screen.</p>
+<div class="space-y-3">
+  {{range .Displays}}
+  <details class="group bg-gray-800 border border-gray-700 rounded-lg">
+    <summary class="flex items-center justify-between px-4 py-3 cursor-pointer list-none select-none">
+      <div>
+        <span class="font-medium text-white">{{.Name}}</span>
+        <span class="text-xs text-gray-400 ml-2">{{.Width}}×{{.Height}} @ +{{.X}}+{{.Y}}</span>
+      </div>
+      <svg class="w-4 h-4 text-gray-500 group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+      </svg>
+    </summary>
+    <form method="POST" action="/screens" class="px-4 pb-4 pt-2 border-t border-gray-700 space-y-3">
+      <input type="hidden" name="display_name" value="{{.Name}}">
+      <input type="hidden" name="x" value="{{.X}}">
+      <input type="hidden" name="y" value="{{.Y}}">
+      <input type="hidden" name="width" value="{{.Width}}">
+      <input type="hidden" name="height" value="{{.Height}}">
+      <div>
+        <label class="block text-xs text-gray-400 mb-1">Screen name</label>
+        <input type="text" name="name" placeholder="e.g. Lobby Display" required
+               class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500">
+      </div>
+      <button type="submit"
+              class="w-full bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium py-2 rounded-lg transition-colors">
+        Add {{.Name}}
+      </button>
+    </form>
+  </details>
+  {{end}}
+</div>
+{{end}}
+{{end}}
