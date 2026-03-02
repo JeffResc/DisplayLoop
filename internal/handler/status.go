@@ -26,7 +26,7 @@ type ScreenStatusJSON struct {
 }
 
 func (a *App) HandleStatusJSON(w http.ResponseWriter, r *http.Request) {
-	payload, err := a.buildStatusPayload()
+	payload, err := a.buildStatusPayload(r.Context())
 	if err != nil {
 		a.respondError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -85,15 +85,16 @@ func (a *App) HandleStatusStream(w http.ResponseWriter, r *http.Request) {
 	ch := a.Hub.subscribe()
 	defer a.Hub.unsubscribe(ch)
 
+	ctx := r.Context()
+
 	// Send initial payload immediately.
-	if payload, err := a.buildStatusPayload(); err == nil {
+	if payload, err := a.buildStatusPayload(ctx); err == nil {
 		if data, err := json.Marshal(payload); err == nil {
 			fmt.Fprintf(w, "data: %s\n\n", data)
 			flusher.Flush()
 		}
 	}
 
-	ctx := r.Context()
 	for {
 		select {
 		case <-ctx.Done():
@@ -115,7 +116,7 @@ func (a *App) StartBroadcaster(ctx context.Context) {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				payload, err := a.buildStatusPayload()
+				payload, err := a.buildStatusPayload(ctx)
 				if err != nil {
 					continue
 				}
@@ -129,8 +130,8 @@ func (a *App) StartBroadcaster(ctx context.Context) {
 	}()
 }
 
-func (a *App) buildStatusPayload() (*StatusPayload, error) {
-	screens, err := db.ListScreens(a.DB)
+func (a *App) buildStatusPayload(ctx context.Context) (*StatusPayload, error) {
+	screens, err := db.ListScreens(ctx, a.DB)
 	if err != nil {
 		return nil, err
 	}

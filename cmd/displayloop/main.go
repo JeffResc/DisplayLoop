@@ -47,23 +47,29 @@ func main() {
 	if err != nil {
 		log.Fatalf("open db: %v", err)
 	}
-	defer database.Close()
 
 	if err := os.MkdirAll(cfg.Server.UploadsDir, 0755); err != nil {
+		database.Close()
 		log.Fatalf("create uploads dir: %v", err)
 	}
 
 	// Extract black.png to a temp file so VLC can read it from the filesystem.
 	blackPNGPath, err := extractBlackPNG()
 	if err != nil {
+		database.Close()
 		log.Fatalf("extract black.png: %v", err)
 	}
-	defer os.Remove(blackPNGPath)
 
 	templateFS, templateFuncs, err := buildTemplateAssets()
 	if err != nil {
+		database.Close()
+		_ = os.Remove(blackPNGPath)
 		log.Fatalf("build templates: %v", err)
 	}
+
+	// All setup succeeded — register cleanup for normal exit.
+	defer database.Close()
+	defer os.Remove(blackPNGPath)
 
 	players := player.New(blackPNGPath, *noVLC)
 	sched := scheduler.New(database, players, cfg.Server.UploadsDir)

@@ -1,8 +1,8 @@
 package handler
 
 import (
-	"fmt"
 	"net/http"
+	"strconv"
 
 	"github.com/JeffResc/DisplayLoop/internal/db"
 	"github.com/JeffResc/DisplayLoop/internal/display"
@@ -22,7 +22,8 @@ type ScreenSummary struct {
 }
 
 func (a *App) HandleDashboard(w http.ResponseWriter, r *http.Request) {
-	screens, err := db.ListScreens(a.DB)
+	ctx := r.Context()
+	screens, err := db.ListScreens(ctx, a.DB)
 	if err != nil {
 		a.respondError(w, http.StatusInternalServerError, "failed to list screens")
 		return
@@ -32,7 +33,7 @@ func (a *App) HandleDashboard(w http.ResponseWriter, r *http.Request) {
 	for i, s := range screens {
 		ids[i] = s.ID
 	}
-	mediaMap, err := db.GetCurrentMediaBulk(a.DB, ids)
+	mediaMap, err := db.GetCurrentMediaBulk(ctx, a.DB, ids)
 	if err != nil {
 		a.respondError(w, http.StatusInternalServerError, "failed to load media")
 		return
@@ -57,7 +58,7 @@ type DetectData struct {
 }
 
 func (a *App) HandleDetectDisplays(w http.ResponseWriter, r *http.Request) {
-	displays, err := display.Detect()
+	displays, err := display.Detect(r.Context())
 	var errMsg string
 	if err != nil {
 		errMsg = err.Error()
@@ -78,11 +79,10 @@ func (a *App) HandleAddScreen(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var x, y, width, height int
-	fmt.Sscanf(r.FormValue("x"), "%d", &x)
-	fmt.Sscanf(r.FormValue("y"), "%d", &y)
-	fmt.Sscanf(r.FormValue("width"), "%d", &width)
-	fmt.Sscanf(r.FormValue("height"), "%d", &height)
+	x, _ := strconv.Atoi(r.FormValue("x"))
+	y, _ := strconv.Atoi(r.FormValue("y"))
+	width, _ := strconv.Atoi(r.FormValue("width"))
+	height, _ := strconv.Atoi(r.FormValue("height"))
 
 	ws := scheduler.DefaultWeekSchedule()
 	hoursJSON, _ := encodeJSON(ws)
@@ -99,13 +99,14 @@ func (a *App) HandleAddScreen(w http.ResponseWriter, r *http.Request) {
 		OperatingHours: hoursJSON,
 	}
 
-	id, err := db.InsertScreen(a.DB, s)
+	ctx := r.Context()
+	id, err := db.InsertScreen(ctx, a.DB, s)
 	if err != nil {
 		a.respondError(w, http.StatusInternalServerError, "failed to add screen")
 		return
 	}
 
-	_ = db.InsertAuditLog(a.DB, int(id), "screen_added", nil, nil, displayName)
-	a.Scheduler.Evaluate()
+	_ = db.InsertAuditLog(ctx, a.DB, int(id), "screen_added", nil, nil, displayName)
+	a.Scheduler.Evaluate(ctx)
 	a.redirect(w, r, "/screens/"+itoa(int(id)))
 }

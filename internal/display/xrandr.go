@@ -1,6 +1,7 @@
 package display
 
 import (
+	"context"
 	"fmt"
 	"os/exec"
 	"regexp"
@@ -21,8 +22,8 @@ func (d Display) String() string {
 }
 
 // Detect runs xrandr and returns all connected displays with their geometry.
-func Detect() ([]Display, error) {
-	out, err := exec.Command("xrandr", "--query").Output()
+func Detect(ctx context.Context) ([]Display, error) {
+	out, err := exec.CommandContext(ctx, "xrandr", "--query").Output()
 	if err != nil {
 		return nil, fmt.Errorf("xrandr: %w", err)
 	}
@@ -31,8 +32,8 @@ func Detect() ([]Display, error) {
 
 // ConnectedNames returns the set of currently-connected port names (e.g. "HDMI-1", "DP-2").
 // This is a fast poll used by the connection monitor.
-func ConnectedNames() (map[string]struct{}, error) {
-	out, err := exec.Command("xrandr", "--query").Output()
+func ConnectedNames(ctx context.Context) (map[string]struct{}, error) {
+	out, err := exec.CommandContext(ctx, "xrandr", "--query").Output()
 	if err != nil {
 		return nil, fmt.Errorf("xrandr: %w", err)
 	}

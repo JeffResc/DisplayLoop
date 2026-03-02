@@ -1,10 +1,11 @@
 package db
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 
-	_ "modernc.org/sqlite"
+	_ "modernc.org/sqlite" // registers the sqlite3 driver
 )
 
 func Open(path string) (*sql.DB, error) {
@@ -13,14 +14,14 @@ func Open(path string) (*sql.DB, error) {
 		return nil, fmt.Errorf("open db: %w", err)
 	}
 	db.SetMaxOpenConns(1)
-	if err := migrate(db); err != nil {
+	if err := migrate(context.Background(), db); err != nil {
 		return nil, fmt.Errorf("migrate: %w", err)
 	}
 	return db, nil
 }
 
-func migrate(db *sql.DB) error {
-	_, err := db.Exec(schema)
+func migrate(ctx context.Context, db *sql.DB) error {
+	_, err := db.ExecContext(ctx, schema)
 	return err
 }
 

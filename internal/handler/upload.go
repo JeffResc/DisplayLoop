@@ -16,9 +16,10 @@ import (
 
 // HandleUpload processes a new media file upload for a screen.
 func (a *App) HandleUpload(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	id := screenIDFromURL(r)
 
-	screen, err := db.GetScreen(a.DB, id)
+	screen, err := db.GetScreen(ctx, a.DB, id)
 	if err != nil {
 		a.respondError(w, http.StatusNotFound, "screen not found")
 		return
@@ -66,7 +67,7 @@ func (a *App) HandleUpload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Record in DB.
-	mediaID, err := db.InsertMedia(a.DB, db.Media{
+	mediaID, err := db.InsertMedia(ctx, a.DB, db.Media{
 		ScreenID:     id,
 		Filename:     storedFilename,
 		OriginalName: header.Filename,
@@ -80,9 +81,9 @@ func (a *App) HandleUpload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Update active content, recording previous for rollback.
-	prevState, _ := db.GetScreenState(a.DB, id)
+	prevState, _ := db.GetScreenState(ctx, a.DB, id)
 	mid := int(mediaID)
-	if err := db.SetScreenMedia(a.DB, id, &mid); err != nil {
+	if err := db.SetScreenMedia(ctx, a.DB, id, &mid); err != nil {
 		a.respondError(w, http.StatusInternalServerError, "failed to update screen state")
 		return
 	}
@@ -91,7 +92,7 @@ func (a *App) HandleUpload(w http.ResponseWriter, r *http.Request) {
 	if prevState != nil {
 		prevMediaID = prevState.MediaID
 	}
-	_ = db.InsertAuditLog(a.DB, id, "content_uploaded", &mid, prevMediaID, header.Filename)
+	_ = db.InsertAuditLog(ctx, a.DB, id, "content_uploaded", &mid, prevMediaID, header.Filename)
 
 	// Trigger playback immediately.
 	isImage := mediaType == "image"
