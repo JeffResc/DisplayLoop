@@ -330,6 +330,7 @@ func startVLC(screen db.Screen, filePath string, isImage bool) (*exec.Cmd, chan 
 func buildVLCCommand(screen db.Screen, filePath string, isImage bool) *exec.Cmd {
 	args := []string{
 		"--intf", "dummy",
+		"--vout", "xcb_x11",
 		"--no-interact",
 		"--no-audio",
 		"--no-video-title-show",
