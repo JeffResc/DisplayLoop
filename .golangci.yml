@@ -2,44 +2,67 @@ version: "2"
 
 run:
   go: "1.24"
+  concurrency: 6
+  tests: false
 
 linters:
-  default: none
   enable:
-    - errcheck       # unchecked errors
-    - gosimple       # simplification suggestions
-    - govet          # suspicious constructs
-    - ineffassign    # unused assignments
-    - staticcheck    # comprehensive static analysis
-    - unused         # unused code
-    - gofmt          # formatting
-    - goimports      # import ordering
-    - gocritic       # various code issues
-    - misspell       # spelling mistakes in comments/strings
-    - noctx          # HTTP requests without context
-    - bodyclose      # HTTP response body not closed
-    - revive         # replacement for golint
-
-linters-settings:
-  govet:
-    enable-all: true
-    disable:
-      - fieldalignment  # don't require struct field reordering
-  revive:
-    rules:
-      - name: exported
-        disabled: true  # don't require doc comments on all exports
-  gocritic:
-    enabled-tags:
-      - diagnostic
-      - style
-    disabled-checks:
-      - hugeParam       # not applicable for this project size
+    - errcheck
+    - errorlint
+    - gocritic
+    - misspell
+    - nilerr
+    - revive
+    - staticcheck
+    - unconvert
+    - unparam
+    - unused
+    - whitespace
+    - bodyclose
+    - noctx
+  settings:
+    govet:
+      enable-all: true
+      disable:
+        - fieldalignment
+        - shadow
+    revive:
+      rules:
+        - name: blank-imports
+        - name: context-as-argument
+        - name: context-keys-type
+        - name: dot-imports
+        - name: error-return
+        - name: error-strings
+        - name: error-naming
+        - name: if-return
+        - name: increment-decrement
+        - name: var-declaration
+        - name: range
+        - name: receiver-naming
+        - name: unexported-return
+        - name: indent-error-flow
+        - name: errorf
+        - name: empty-block
+        - name: superfluous-else
+        - name: unused-parameter
+        - name: unreachable-code
+        - name: redefines-builtin-id
+    unused:
+      local-variables-are-used: false
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
 
 issues:
-  exclude-rules:
-    - path: _test\.go
-      linters:
-        - errcheck
   max-issues-per-linter: 0
   max-same-issues: 0
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
