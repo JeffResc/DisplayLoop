@@ -106,6 +106,7 @@ func main() {
 	r.Post("/screens/{id}/enable", app.HandleScreenEnable)
 	r.Post("/screens/{id}/hours", app.HandleScreenUpdateHours)
 	r.Post("/screens/{id}/offhours", app.HandleScreenUpdateOffHours)
+	r.Post("/screens/{id}/resolution", app.HandleScreenSetResolution)
 	r.Post("/screens/{id}/delete", app.HandleScreenDelete)
 	r.Post("/screens/{id}/rollback/{auditID}", app.HandleRollback)
 	r.Get("/audit", app.HandleAuditLog)
