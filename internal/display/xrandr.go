@@ -88,7 +88,7 @@ func parse(output string) []Display {
 	var displays []Display
 	var current *Display
 
-	for _, line := range strings.Split(output, "\n") {
+	for line := range strings.SplitSeq(output, "\n") {
 		// Non-indented line — new port declaration.
 		if len(line) > 0 && line[0] != ' ' && line[0] != '\t' {
 			if current != nil {

@@ -53,17 +53,41 @@ func (a *App) HandleDashboard(w http.ResponseWriter, r *http.Request) {
 
 // DetectData is passed to the detect-displays template fragment.
 type DetectData struct {
-	Displays []display.Display
-	Error    string
+	Displays     []display.Display
+	Error        string
+	SkippedCount int // displays already configured as screens
 }
 
 func (a *App) HandleDetectDisplays(w http.ResponseWriter, r *http.Request) {
-	displays, err := display.Detect(r.Context())
+	ctx := r.Context()
+	displays, err := display.Detect(ctx)
 	var errMsg string
 	if err != nil {
 		errMsg = err.Error()
 	}
-	a.renderPartial(w, "detect.html", "detect.html", DetectData{Displays: displays, Error: errMsg})
+
+	// Build a set of display_name values that are already configured.
+	taken := make(map[string]struct{})
+	if screens, err := db.ListScreens(ctx, a.DB); err == nil {
+		for _, s := range screens {
+			taken[s.DisplayName] = struct{}{}
+		}
+	}
+
+	var available []display.Display
+	for _, d := range displays {
+		if _, exists := taken[d.Name]; exists {
+			continue
+		}
+		available = append(available, d)
+	}
+
+	data := DetectData{
+		Displays:     available,
+		Error:        errMsg,
+		SkippedCount: len(displays) - len(available),
+	}
+	a.renderPartial(w, "detect.html", "detect.html", data)
 }
 
 func (a *App) HandleAddScreen(w http.ResponseWriter, r *http.Request) {

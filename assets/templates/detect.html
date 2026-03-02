@@ -4,7 +4,11 @@
 {{end}}
 
 {{if not .Displays}}
+{{if gt .SkippedCount 0}}
+<p class="text-gray-400 text-sm">All connected displays are already configured as screens.</p>
+{{else}}
 <p class="text-gray-400 text-sm">No connected displays found. Check that xrandr is available and displays are connected.</p>
+{{end}}
 {{else}}
 <p class="text-gray-400 text-sm mb-4">Select a display to configure as a new screen.</p>
 <div class="space-y-3">
