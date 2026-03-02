@@ -61,7 +61,7 @@ func ConnectedNames(ctx context.Context) (map[string]struct{}, error) {
 }
 
 // SetMode applies a resolution and refresh rate to a named output via xrandr.
-// modeName is the xrandr mode string (e.g. "1920x1080"). rate 0 omits --rate.
+// modeName is the xrandr mode string (e.g. "1920x1080"). A zero rate omits --rate.
 func SetMode(ctx context.Context, output, modeName string, rate float64) error {
 	args := []string{"--output", output, "--mode", modeName}
 	if rate > 0 {
@@ -73,16 +73,15 @@ func SetMode(ctx context.Context, output, modeName string, rate float64) error {
 	return nil
 }
 
-// connected line pattern: "HDMI-1 connected 1920x1080+0+0 ..."
-// also handles: "HDMI-1 connected primary 1920x1080+0+0 ..."
+// connected line: "HDMI-1 connected 1920x1080+0+0 ..." or "... connected primary 1920x1080+0+0 ..."
 var connectedRE = regexp.MustCompile(
 	`^(\S+)\s+connected(?:\s+primary)?\s+(\d+)x(\d+)\+(\d+)\+(\d+)`,
 )
 
-// mode line pattern: "   1920x1080     60.00*+  50.00" (indented)
+// mode line (indented): "   1920x1080     60.00*+  50.00"
 var modeLineRE = regexp.MustCompile(`^\s+(\d+x\d+i?)\s+(.+)$`)
 
-// individual rate value, optionally followed by * and/or +
+// individual rate token, optionally tagged with * (current) and/or + (preferred)
 var rateRE = regexp.MustCompile(`(\d+\.\d+)([*+]*)`)
 
 func parse(output string) []Display {
@@ -90,7 +89,7 @@ func parse(output string) []Display {
 	var current *Display
 
 	for line := range strings.SplitSeq(output, "\n") {
-		// Non-indented line: new port declaration (connected or disconnected).
+		// Non-indented line — new port declaration.
 		if len(line) > 0 && line[0] != ' ' && line[0] != '\t' {
 			if current != nil {
 				displays = append(displays, *current)
@@ -112,7 +111,7 @@ func parse(output string) []Display {
 			continue
 		}
 
-		// Indented line: mode entry for current display.
+		// Indented line — mode entry for the current display.
 		if current == nil {
 			continue
 		}

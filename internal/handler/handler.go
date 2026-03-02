@@ -9,6 +9,7 @@ import (
 
 	"github.com/JeffResc/DisplayLoop/internal/player"
 	"github.com/JeffResc/DisplayLoop/internal/scheduler"
+	"github.com/JeffResc/DisplayLoop/internal/vnc"
 )
 
 // App holds shared dependencies for all handlers.
@@ -16,6 +17,7 @@ type App struct {
 	DB            *sql.DB
 	Players       *player.Manager
 	Scheduler     *scheduler.Scheduler
+	VNC           *vnc.Manager
 	UploadsDir    string
 	TemplateFS    fs.FS
 	TemplateFuncs template.FuncMap

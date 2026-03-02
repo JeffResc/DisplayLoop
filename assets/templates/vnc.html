@@ -1,0 +1,88 @@
+{{template "layout" .}}
+
+{{define "title"}}Live Preview — {{.Name}} — DisplayLoop{{end}}
+
+{{define "content"}}
+<!-- Breadcrumb -->
+<div class="flex items-center gap-2 text-sm text-gray-500 mb-4">
+  <a href="/" class="hover:text-white transition-colors">Dashboard</a>
+  <span>/</span>
+  <a href="/screens/{{.ID}}" class="hover:text-white transition-colors">{{.Name}}</a>
+  <span>/</span>
+  <span class="text-white">Live Preview</span>
+</div>
+
+<div class="flex items-center justify-between mb-4">
+  <div>
+    <h1 class="text-xl font-bold text-white">{{.Name}} — Live Preview</h1>
+    <p class="text-xs text-gray-500 mt-0.5">{{.DisplayName}} &bull; {{.Width}}×{{.Height}}</p>
+  </div>
+  <div class="flex items-center gap-3">
+    <span id="vnc-status"
+          class="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full bg-yellow-900 text-yellow-300">
+      <span class="w-1.5 h-1.5 rounded-full bg-yellow-400 animate-pulse"></span>
+      Connecting…
+    </span>
+    <button id="vnc-fullscreen"
+            class="text-xs border border-gray-700 hover:border-indigo-500 hover:text-indigo-400 text-gray-400 px-3 py-1.5 rounded-lg transition-colors">
+      Fullscreen
+    </button>
+  </div>
+</div>
+
+<!-- noVNC canvas container -->
+<div id="vnc-screen"
+     class="w-full bg-black rounded-xl overflow-hidden border border-gray-800"
+     style="aspect-ratio: {{.Width}} / {{.Height}}; max-height: calc(100vh - 14rem);">
+</div>
+
+<p class="text-xs text-gray-600 mt-3">
+  VNC is clipped to this screen's region ({{.Width}}×{{.Height}} at +{{.X}}+{{.Y}}).
+  x11vnc must be installed on the host.
+</p>
+
+<script type="module">
+import RFB from 'https://cdn.jsdelivr.net/npm/@novnc/novnc@1.5.0/core/rfb.js';
+
+const container = document.getElementById('vnc-screen');
+const statusEl  = document.getElementById('vnc-status');
+
+function setStatus(label, colorClass, dotClass, pulse) {
+  statusEl.className = `inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full ${colorClass}`;
+  statusEl.innerHTML = `<span class="w-1.5 h-1.5 rounded-full ${dotClass}${pulse ? ' animate-pulse' : ''}"></span>${label}`;
+}
+
+const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+const wsURL  = `${proto}//${location.host}/screens/{{.ID}}/vnc/ws`;
+
+let rfb;
+try {
+  rfb = new RFB(container, wsURL);
+  rfb.scaleViewport = true;
+  rfb.resizeSession = false;
+
+  rfb.addEventListener('connect', () => {
+    setStatus('Connected', 'bg-green-900 text-green-300', 'bg-green-400', false);
+  });
+  rfb.addEventListener('disconnect', (e) => {
+    const clean = e.detail && e.detail.clean;
+    setStatus(
+      clean ? 'Disconnected' : 'Connection lost',
+      'bg-red-900 text-red-300',
+      'bg-red-400',
+      false,
+    );
+  });
+  rfb.addEventListener('credentialsrequired', () => {
+    // x11vnc is started with -nopw, so this shouldn't happen.
+    rfb.sendCredentials({ password: '' });
+  });
+} catch (err) {
+  setStatus('Error: ' + err.message, 'bg-red-900 text-red-300', 'bg-red-400', false);
+}
+
+document.getElementById('vnc-fullscreen').addEventListener('click', () => {
+  if (container.requestFullscreen) container.requestFullscreen();
+});
+</script>
+{{end}}

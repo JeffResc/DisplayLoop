@@ -16,6 +16,11 @@
     <p class="text-sm text-gray-500 mt-1">{{.Screen.DisplayName}} &bull; {{.Screen.Width}}×{{.Screen.Height}} &bull; offset +{{.Screen.X}}+{{.Screen.Y}}</p>
   </div>
   <div class="flex items-center gap-3">
+    <!-- Live Preview -->
+    <a href="/screens/{{.Screen.ID}}/vnc" target="_blank"
+       class="text-xs border border-gray-700 hover:border-indigo-500 hover:text-indigo-400 text-gray-400 px-3 py-1.5 rounded-lg transition-colors">
+      Live Preview
+    </a>
     <!-- Enable/Disable -->
     {{if .Screen.Enabled}}
     <form method="POST" action="/screens/{{.Screen.ID}}/enable">
