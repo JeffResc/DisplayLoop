@@ -333,8 +333,14 @@ func startVLC(screen db.Screen, filePath string, isImage bool) (*exec.Cmd, chan 
 }
 
 func buildVLCCommand(screen db.Screen, filePath string) *exec.Cmd {
+	screenNum := 0
+	if screen.Width > 0 {
+		screenNum = screen.X / screen.Width
+	}
 	args := []string{
-		"--intf", "dummy",
+		"--intf", "qt",
+		"--no-qt-privacy-ask",
+		"--qt-start-minimized",
 		"--no-interact",
 		"--no-audio",
 		"--no-video-title-show",
@@ -342,11 +348,8 @@ func buildVLCCommand(screen db.Screen, filePath string) *exec.Cmd {
 		"--no-osd",
 		"--vout", "xcb_x11",
 		"--avcodec-hw", "vaapi",
-		"--video-x", fmt.Sprintf("%d", screen.X),
-		"--video-y", fmt.Sprintf("%d", screen.Y),
-		"--width", fmt.Sprintf("%d", screen.Width),
-		"--height", fmt.Sprintf("%d", screen.Height),
-		"--no-video-deco",
+		"--fullscreen",
+		fmt.Sprintf("--qt-fullscreen-screennumber=%d", screenNum),
 		"--loop",
 		filePath,
 	}
