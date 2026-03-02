@@ -152,4 +152,3 @@ func (s *Scheduler) evaluateScreen(ctx context.Context, screen db.Screen, now ti
 	}
 	return nil
 }
-
