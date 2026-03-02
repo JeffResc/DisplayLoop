@@ -315,7 +315,12 @@ func (m *Manager) healthCheck() {
 // startVLC starts a VLC subprocess and returns the cmd and a done channel that
 // is closed when the process exits (i.e. when cmd.Wait() returns).
 func startVLC(screen db.Screen, filePath string, isImage bool) (*exec.Cmd, chan struct{}, error) {
-	cmd := buildVLCCommand(screen, filePath, isImage)
+	var cmd *exec.Cmd
+	if isImage {
+		cmd = buildFehCommand(screen, filePath)
+	} else {
+		cmd = buildVLCCommand(screen, filePath)
+	}
 	if err := cmd.Start(); err != nil {
 		return nil, nil, err
 	}
@@ -327,29 +332,36 @@ func startVLC(screen db.Screen, filePath string, isImage bool) (*exec.Cmd, chan 
 	return cmd, done, nil
 }
 
-func buildVLCCommand(screen db.Screen, filePath string, isImage bool) *exec.Cmd {
-	screenNum := 0
-	if screen.Width > 0 {
-		screenNum = screen.X / screen.Width
-	}
+func buildVLCCommand(screen db.Screen, filePath string) *exec.Cmd {
 	args := []string{
-		"--intf", "qt",
-		"--no-qt-privacy-ask",
-		"--qt-start-minimized",
+		"--intf", "dummy",
 		"--no-interact",
 		"--no-audio",
 		"--no-video-title-show",
 		"--no-metadata-network-access",
 		"--no-osd",
+		"--vout", "xcb_x11",
+		"--avcodec-hw", "vaapi",
+		"--video-x", fmt.Sprintf("%d", screen.X),
+		"--video-y", fmt.Sprintf("%d", screen.Y),
+		"--width", fmt.Sprintf("%d", screen.Width),
+		"--height", fmt.Sprintf("%d", screen.Height),
 		"--fullscreen",
-		fmt.Sprintf("--qt-fullscreen-screennumber=%d", screenNum),
 		"--loop",
+		filePath,
 	}
-	if isImage {
-		args = append(args, "--image-duration=-1")
-	}
-	args = append(args, filePath)
 	return exec.CommandContext(vlcBackground, "vlc", args...)
+}
+
+func buildFehCommand(screen db.Screen, filePath string) *exec.Cmd {
+	args := []string{
+		"--zoom", "fill",
+		"--no-fehbg",
+		"--borderless",
+		"--geometry", fmt.Sprintf("%dx%d+%d+%d", screen.Width, screen.Height, screen.X, screen.Y),
+		filePath,
+	}
+	return exec.CommandContext(vlcBackground, "feh", args...)
 }
 
 func isImageFile(path string) bool {
