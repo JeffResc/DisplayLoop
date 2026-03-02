@@ -12,8 +12,9 @@ type Config struct {
 }
 
 type ServerConfig struct {
-	Port       int    `toml:"port"`
-	UploadsDir string `toml:"uploads_dir"`
+	Port        int    `toml:"port"`
+	UploadsDir  string `toml:"uploads_dir"`
+	VncBasePort int    `toml:"vnc_base_port"`
 }
 
 type RetentionConfig struct {
@@ -24,8 +25,9 @@ type RetentionConfig struct {
 func Load(path string) (*Config, error) {
 	cfg := &Config{
 		Server: ServerConfig{
-			Port:       8080,
-			UploadsDir: "./uploads",
+			Port:        8080,
+			UploadsDir:  "./uploads",
+			VncBasePort: 5900,
 		},
 		Retention: RetentionConfig{
 			AuditDays: 365,

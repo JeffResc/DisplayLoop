@@ -25,6 +25,7 @@ import (
 	"github.com/JeffResc/DisplayLoop/internal/player"
 	"github.com/JeffResc/DisplayLoop/internal/scheduler"
 	"github.com/JeffResc/DisplayLoop/internal/scrubber"
+	"github.com/JeffResc/DisplayLoop/internal/vnc"
 )
 
 // Build information, injected at link time via -ldflags.
@@ -73,11 +74,13 @@ func main() {
 
 	players := player.New(blackPNGPath, *noVLC)
 	sched := scheduler.New(database, players, cfg.Server.UploadsDir)
+	vncMgr := vnc.New(cfg.Server.VncBasePort)
 
 	app := &handler.App{
 		DB:            database,
 		Players:       players,
 		Scheduler:     sched,
+		VNC:           vncMgr,
 		UploadsDir:    cfg.Server.UploadsDir,
 		TemplateFS:    templateFS,
 		TemplateFuncs: templateFuncs,
@@ -88,6 +91,7 @@ func main() {
 	defer stop()
 
 	players.StartHealthCheck(ctx)
+	vncMgr.StartHealthCheck(ctx)
 	go sched.Run(ctx)
 	go scrubber.New(database, cfg.Server.UploadsDir, cfg.Retention.AuditDays, cfg.Retention.ScrubDays).Run(ctx)
 	go monitor.New(database, players, sched).Run(ctx)
@@ -106,6 +110,9 @@ func main() {
 	r.Post("/screens/{id}/enable", app.HandleScreenEnable)
 	r.Post("/screens/{id}/hours", app.HandleScreenUpdateHours)
 	r.Post("/screens/{id}/offhours", app.HandleScreenUpdateOffHours)
+	r.Post("/screens/{id}/resolution", app.HandleScreenSetResolution)
+	r.Get("/screens/{id}/vnc", app.HandleVNCPage)
+	r.Get("/screens/{id}/vnc/ws", app.HandleVNCProxy)
 	r.Post("/screens/{id}/delete", app.HandleScreenDelete)
 	r.Post("/screens/{id}/rollback/{auditID}", app.HandleRollback)
 	r.Get("/audit", app.HandleAuditLog)
@@ -138,6 +145,7 @@ func main() {
 	<-ctx.Done()
 	log.Println("Shutting down…")
 	players.StopAll()
+	vncMgr.StopAll()
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

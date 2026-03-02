@@ -8,10 +8,12 @@ import (
 	"net/http"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 
 	"github.com/JeffResc/DisplayLoop/internal/db"
+	"github.com/JeffResc/DisplayLoop/internal/display"
 	"github.com/JeffResc/DisplayLoop/internal/player"
 	"github.com/JeffResc/DisplayLoop/internal/scheduler"
 )
@@ -24,6 +26,7 @@ type ScreenData struct {
 	AuditLog     []db.AuditEntry
 	WeekSchedule scheduler.WeekSchedule
 	DayOrder     []string
+	DisplayInfo  *display.Display // nil if display is not currently connected
 }
 
 var dayOrder = []string{"monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"}
@@ -48,6 +51,16 @@ func (a *App) HandleScreenDetail(w http.ResponseWriter, r *http.Request) {
 		AuditLog:     audit,
 		WeekSchedule: ws,
 		DayOrder:     dayOrder,
+	}
+
+	// Attach live display info (modes/rates) if the display is connected.
+	if displays, err := display.Detect(ctx); err == nil {
+		for i := range displays {
+			if displays[i].Name == screen.DisplayName {
+				data.DisplayInfo = &displays[i]
+				break
+			}
+		}
 	}
 
 	a.render(w, "screen.html", data)
@@ -156,6 +169,45 @@ func (a *App) HandleScreenUpdateOffHours(w http.ResponseWriter, r *http.Request)
 
 	_ = db.InsertAuditLog(ctx, a.DB, id, "off_hours_changed", nil, nil, fmt.Sprintf("mode=%s", mode))
 	a.Scheduler.Evaluate(ctx)
+	a.redirect(w, r, "/screens/"+itoa(id))
+}
+
+// HandleScreenSetResolution applies a resolution/refresh-rate change via xrandr.
+// Form value "mode" is encoded as "{modeName}@{rate}", e.g. "1920x1080@60.00".
+func (a *App) HandleScreenSetResolution(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	id := screenIDFromURL(r)
+	if err := r.ParseForm(); err != nil {
+		a.respondError(w, http.StatusBadRequest, "invalid form")
+		return
+	}
+
+	screen, err := db.GetScreen(ctx, a.DB, id)
+	if err != nil {
+		a.respondError(w, http.StatusNotFound, "screen not found")
+		return
+	}
+
+	val := r.FormValue("mode")
+	parts := strings.SplitN(val, "@", 2)
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+		a.respondError(w, http.StatusBadRequest, "invalid mode value")
+		return
+	}
+	modeName := parts[0]
+	rate, err := strconv.ParseFloat(parts[1], 64)
+	if err != nil {
+		a.respondError(w, http.StatusBadRequest, "invalid rate")
+		return
+	}
+
+	if err := display.SetMode(ctx, screen.DisplayName, modeName, rate); err != nil {
+		a.respondError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	_ = db.InsertAuditLog(ctx, a.DB, id, "screen_configured", nil, nil,
+		fmt.Sprintf("resolution=%s@%.2fHz", modeName, rate))
 	a.redirect(w, r, "/screens/"+itoa(id))
 }
 
