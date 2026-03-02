@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"io"
 	"net"
 	"net/http"
@@ -14,7 +15,7 @@ import (
 
 var vncUpgrader = websocket.Upgrader{
 	// Allow all origins — safe because x11vnc only binds to 127.0.0.1.
-	CheckOrigin: func(r *http.Request) bool { return true },
+	CheckOrigin: func(_ *http.Request) bool { return true },
 }
 
 // HandleVNCPage renders the noVNC viewer for a specific screen.
@@ -55,9 +56,10 @@ func (a *App) HandleVNCProxy(w http.ResponseWriter, r *http.Request) {
 
 	// Give x11vnc a moment to start listening if it was just spawned.
 	addr := itoa(port)
+	dialer := &net.Dialer{Timeout: 500 * time.Millisecond}
 	var vncConn net.Conn
 	for i := 0; i < 10; i++ {
-		vncConn, err = net.DialTimeout("tcp", "127.0.0.1:"+addr, 500*time.Millisecond)
+		vncConn, err = dialer.DialContext(ctx, "tcp", "127.0.0.1:"+addr)
 		if err == nil {
 			break
 		}
@@ -101,7 +103,7 @@ func (a *App) HandleVNCProxy(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 			if err != nil {
-				if err != io.EOF {
+				if !errors.Is(err, io.EOF) {
 					_ = wsConn.WriteMessage(websocket.CloseMessage,
 						websocket.FormatCloseMessage(1011, "VNC connection closed"))
 				}

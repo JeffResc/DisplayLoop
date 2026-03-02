@@ -22,6 +22,7 @@ type Manager struct {
 
 type vncProc struct {
 	cmd    *exec.Cmd
+	cancel context.CancelFunc
 	done   chan struct{} // closed when cmd.Wait() returns
 	port   int
 	screen db.Screen
@@ -122,7 +123,7 @@ func (m *Manager) stopLocked(screenID int) {
 	if !ok {
 		return
 	}
-	_ = p.cmd.Process.Kill()
+	p.cancel()
 	<-p.done
 	delete(m.procs, screenID)
 }
@@ -130,7 +131,8 @@ func (m *Manager) stopLocked(screenID int) {
 // startX11VNC launches x11vnc clipped to the screen's region.
 func startX11VNC(screen db.Screen, port int) (*vncProc, error) {
 	clip := fmt.Sprintf("%dx%d+%d+%d", screen.Width, screen.Height, screen.X, screen.Y)
-	cmd := exec.Command("x11vnc",
+	ctx, cancel := context.WithCancel(context.Background())
+	cmd := exec.CommandContext(ctx, "x11vnc",
 		"-display", ":0",
 		"-nopw",
 		"-listen", "127.0.0.1",
@@ -141,6 +143,7 @@ func startX11VNC(screen db.Screen, port int) (*vncProc, error) {
 		"-quiet",
 	)
 	if err := cmd.Start(); err != nil {
+		cancel()
 		return nil, fmt.Errorf("x11vnc: %w", err)
 	}
 	done := make(chan struct{})
@@ -148,5 +151,5 @@ func startX11VNC(screen db.Screen, port int) (*vncProc, error) {
 		defer close(done)
 		_ = cmd.Wait()
 	}()
-	return &vncProc{cmd: cmd, done: done, port: port, screen: screen}, nil
+	return &vncProc{cmd: cmd, cancel: cancel, done: done, port: port, screen: screen}, nil
 }
