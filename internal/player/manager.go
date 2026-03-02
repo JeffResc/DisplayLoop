@@ -135,12 +135,24 @@ func (m *Manager) Play(screen db.Screen, filePath string, isImage bool) error {
 	return nil
 }
 
-// PlayOffHours switches a screen to its off-hours content (black or image).
+// PlayOffHours switches a screen to its off-hours content (black, image, or none).
 func (m *Manager) PlayOffHours(screen db.Screen) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	m.stopLocked(screen.ID)
+
+	if screen.OffHoursMode == "none" {
+		// Leave the desktop visible. Track as off-hours so the scheduler
+		// knows not to restart content playback.
+		m.entries[screen.ID] = &screenEntry{
+			status:     StatusOffHours,
+			startedAt:  time.Now(),
+			screen:     screen,
+			isOffHours: true,
+		}
+		return nil
+	}
 
 	var filePath string
 	if screen.OffHoursMode == "image" && screen.OffHoursImagePath != "" {

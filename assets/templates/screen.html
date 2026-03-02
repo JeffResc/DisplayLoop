@@ -137,6 +137,12 @@
                    class="accent-indigo-500">
             <span class="text-sm text-gray-300">Display image</span>
           </label>
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="radio" name="off_hours_mode" value="none"
+                   {{if eq .Screen.OffHoursMode "none"}}checked{{end}}
+                   class="accent-indigo-500">
+            <span class="text-sm text-gray-300">Show desktop</span>
+          </label>
         </div>
         {{if eq .Screen.OffHoursMode "image"}}
         <div>

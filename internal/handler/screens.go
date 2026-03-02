@@ -136,7 +136,7 @@ func (a *App) HandleScreenUpdateOffHours(w http.ResponseWriter, r *http.Request)
 	}
 
 	mode := r.FormValue("off_hours_mode")
-	if mode != "black" && mode != "image" {
+	if mode != "black" && mode != "image" && mode != "none" {
 		mode = "black"
 	}
 
