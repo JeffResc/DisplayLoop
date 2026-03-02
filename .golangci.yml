@@ -1,7 +1,6 @@
 version: "2"
 
 run:
-  go: "1.24"
   concurrency: 6
   tests: false
 
