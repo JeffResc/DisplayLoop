@@ -31,36 +31,36 @@ func New(database *sql.DB, uploadsDir string, auditDays, scrubDays int) *Scrubbe
 
 // Run starts the scrubber. It runs immediately then waits until midnight.
 func (s *Scrubber) Run(ctx context.Context) {
-	s.runOnce()
+	s.runOnce(ctx)
 	for {
 		next := nextMidnight()
 		select {
 		case <-ctx.Done():
 			return
 		case <-time.After(time.Until(next)):
-			s.runOnce()
+			s.runOnce(ctx)
 		}
 	}
 }
 
-func (s *Scrubber) runOnce() {
+func (s *Scrubber) runOnce(ctx context.Context) {
 	now := time.Now()
 
 	mediaCutoff := now.AddDate(0, 0, -s.scrubDays)
-	if err := s.scrubMedia(mediaCutoff); err != nil {
+	if err := s.scrubMedia(ctx, mediaCutoff); err != nil {
 		log.Printf("scrubber: media: %v", err)
 	}
 
 	auditCutoff := now.AddDate(0, 0, -s.auditDays)
-	if n, err := db.DeleteOldAuditLog(s.database, auditCutoff); err != nil {
+	if n, err := db.DeleteOldAuditLog(ctx, s.database, auditCutoff); err != nil {
 		log.Printf("scrubber: audit log: %v", err)
 	} else if n > 0 {
 		log.Printf("scrubber: pruned %d audit log entries", n)
 	}
 }
 
-func (s *Scrubber) scrubMedia(cutoff time.Time) error {
-	candidates, err := db.ScrubableMedia(s.database, cutoff)
+func (s *Scrubber) scrubMedia(ctx context.Context, cutoff time.Time) error {
+	candidates, err := db.ScrubableMedia(ctx, s.database, cutoff)
 	if err != nil {
 		return fmt.Errorf("query scrubable media: %w", err)
 	}
@@ -71,7 +71,7 @@ func (s *Scrubber) scrubMedia(cutoff time.Time) error {
 			log.Printf("scrubber: remove %s: %v", filePath, err)
 			continue
 		}
-		if err := db.MarkMediaScrubbed(s.database, m.ID); err != nil {
+		if err := db.MarkMediaScrubbed(ctx, s.database, m.ID); err != nil {
 			log.Printf("scrubber: mark scrubbed media %d: %v", m.ID, err)
 			continue
 		}

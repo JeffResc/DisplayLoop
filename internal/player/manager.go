@@ -13,6 +13,10 @@ import (
 	"github.com/JeffResc/DisplayLoop/internal/db"
 )
 
+// vlcBackground is used as the context for VLC subprocesses; VLC is a
+// long-running process managed by the Manager, not tied to any request context.
+var vlcBackground = context.Background()
+
 // Status describes the current state of a screen's VLC process.
 type Status int
 
@@ -342,7 +346,7 @@ func buildVLCCommand(screen db.Screen, filePath string, isImage bool) *exec.Cmd 
 		args = append(args, "--image-duration=-1")
 	}
 	args = append(args, filePath)
-	return exec.Command("vlc", args...)
+	return exec.CommandContext(vlcBackground, "vlc", args...)
 }
 
 func isImageFile(path string) bool {

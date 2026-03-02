@@ -3,6 +3,7 @@ package handler
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"path/filepath"
@@ -28,15 +29,16 @@ type ScreenData struct {
 var dayOrder = []string{"monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"}
 
 func (a *App) HandleScreenDetail(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	id := screenIDFromURL(r)
-	screen, err := db.GetScreen(a.DB, id)
+	screen, err := db.GetScreen(ctx, a.DB, id)
 	if err != nil {
 		a.respondError(w, http.StatusNotFound, "screen not found")
 		return
 	}
 
-	media, _ := db.GetCurrentMedia(a.DB, id)
-	audit, _ := db.ListAuditLog(a.DB, id, 50)
+	media, _ := db.GetCurrentMedia(ctx, a.DB, id)
+	audit, _ := db.ListAuditLog(ctx, a.DB, id, 50)
 	ws, _ := scheduler.ParseWeekSchedule(screen.OperatingHours)
 
 	data := ScreenData{
@@ -52,24 +54,26 @@ func (a *App) HandleScreenDetail(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) HandleScreenEnable(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	id := screenIDFromURL(r)
 	if err := r.ParseForm(); err != nil {
 		a.respondError(w, http.StatusBadRequest, "invalid form")
 		return
 	}
 	enabled := r.FormValue("enabled") == "true"
-	if err := db.UpdateScreenEnabled(a.DB, id, enabled); err != nil {
+	if err := db.UpdateScreenEnabled(ctx, a.DB, id, enabled); err != nil {
 		a.respondError(w, http.StatusInternalServerError, "failed to update")
 		return
 	}
 	if !enabled {
 		a.Players.Stop(id)
 	}
-	a.Scheduler.Evaluate()
+	a.Scheduler.Evaluate(ctx)
 	a.redirect(w, r, "/screens/"+itoa(id))
 }
 
 func (a *App) HandleScreenUpdateHours(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	id := screenIDFromURL(r)
 	if err := r.ParseForm(); err != nil {
 		a.respondError(w, http.StatusBadRequest, "invalid form")
@@ -100,17 +104,18 @@ func (a *App) HandleScreenUpdateHours(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := db.UpdateScreenHours(a.DB, id, hoursJSON); err != nil {
+	if err := db.UpdateScreenHours(ctx, a.DB, id, hoursJSON); err != nil {
 		a.respondError(w, http.StatusInternalServerError, "failed to update hours")
 		return
 	}
 
-	_ = db.InsertAuditLog(a.DB, id, "hours_changed", nil, nil, "")
-	a.Scheduler.Evaluate()
+	_ = db.InsertAuditLog(ctx, a.DB, id, "hours_changed", nil, nil, "")
+	a.Scheduler.Evaluate(ctx)
 	a.redirect(w, r, "/screens/"+itoa(id))
 }
 
 func (a *App) HandleScreenUpdateOffHours(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	id := screenIDFromURL(r)
 	if err := r.ParseMultipartForm(32 << 20); err != nil {
 		a.respondError(w, http.StatusBadRequest, "invalid form")
@@ -122,7 +127,7 @@ func (a *App) HandleScreenUpdateOffHours(w http.ResponseWriter, r *http.Request)
 		mode = "black"
 	}
 
-	screen, err := db.GetScreen(a.DB, id)
+	screen, err := db.GetScreen(ctx, a.DB, id)
 	if err != nil {
 		a.respondError(w, http.StatusNotFound, "screen not found")
 		return
@@ -144,21 +149,22 @@ func (a *App) HandleScreenUpdateOffHours(w http.ResponseWriter, r *http.Request)
 		}
 	}
 
-	if err := db.UpdateScreenOffHours(a.DB, id, mode, imagePath); err != nil {
+	if err := db.UpdateScreenOffHours(ctx, a.DB, id, mode, imagePath); err != nil {
 		a.respondError(w, http.StatusInternalServerError, "failed to update off-hours config")
 		return
 	}
 
-	_ = db.InsertAuditLog(a.DB, id, "off_hours_changed", nil, nil, fmt.Sprintf("mode=%s", mode))
-	a.Scheduler.Evaluate()
+	_ = db.InsertAuditLog(ctx, a.DB, id, "off_hours_changed", nil, nil, fmt.Sprintf("mode=%s", mode))
+	a.Scheduler.Evaluate(ctx)
 	a.redirect(w, r, "/screens/"+itoa(id))
 }
 
 func (a *App) HandleScreenDelete(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	id := screenIDFromURL(r)
 	a.Players.Stop(id)
-	_ = db.InsertAuditLog(a.DB, id, "screen_removed", nil, nil, "")
-	if err := db.DeleteScreen(a.DB, id); err != nil {
+	_ = db.InsertAuditLog(ctx, a.DB, id, "screen_removed", nil, nil, "")
+	if err := db.DeleteScreen(ctx, a.DB, id); err != nil {
 		a.respondError(w, http.StatusInternalServerError, "failed to delete screen")
 		return
 	}
@@ -166,6 +172,7 @@ func (a *App) HandleScreenDelete(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) HandleRollback(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	screenID := screenIDFromURL(r)
 	auditIDStr := chi.URLParam(r, "auditID")
 	auditID, err := strconv.Atoi(auditIDStr)
@@ -174,8 +181,8 @@ func (a *App) HandleRollback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	target, err := db.GetAuditEntry(a.DB, auditID)
-	if err == sql.ErrNoRows {
+	target, err := db.GetAuditEntry(ctx, a.DB, auditID)
+	if errors.Is(err, sql.ErrNoRows) {
 		a.respondError(w, http.StatusBadRequest, "audit entry not found")
 		return
 	}
@@ -193,14 +200,14 @@ func (a *App) HandleRollback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	prevMedia, err := db.GetMedia(a.DB, *target.PrevMediaID)
+	prevMedia, err := db.GetMedia(ctx, a.DB, *target.PrevMediaID)
 	if err != nil || prevMedia.Scrubbed {
 		a.respondError(w, http.StatusConflict, "content has been scrubbed and cannot be restored")
 		return
 	}
 
-	currentState, _ := db.GetScreenState(a.DB, screenID)
-	if err := db.SetScreenMedia(a.DB, screenID, target.PrevMediaID); err != nil {
+	currentState, _ := db.GetScreenState(ctx, a.DB, screenID)
+	if err := db.SetScreenMedia(ctx, a.DB, screenID, target.PrevMediaID); err != nil {
 		a.respondError(w, http.StatusInternalServerError, "failed to rollback")
 		return
 	}
@@ -209,11 +216,11 @@ func (a *App) HandleRollback(w http.ResponseWriter, r *http.Request) {
 	if currentState != nil {
 		prevID = currentState.MediaID
 	}
-	_ = db.InsertAuditLog(a.DB, screenID, "rollback", target.PrevMediaID, prevID, fmt.Sprintf("from audit #%d", auditID))
+	_ = db.InsertAuditLog(ctx, a.DB, screenID, "rollback", target.PrevMediaID, prevID, fmt.Sprintf("from audit #%d", auditID))
 
 	// Directly restart VLC with the rolled-back content so it takes effect
 	// immediately, regardless of whether VLC is already running something else.
-	screen, err := db.GetScreen(a.DB, screenID)
+	screen, err := db.GetScreen(ctx, a.DB, screenID)
 	if err == nil {
 		filePath := filepath.Join(a.UploadsDir, itoa(screenID), "content", prevMedia.Filename)
 		isImage := prevMedia.MediaType == "image"
