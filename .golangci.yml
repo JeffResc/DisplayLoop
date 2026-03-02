@@ -1,0 +1,42 @@
+version: "2"
+
+linters:
+  default: none
+  enable:
+    - errcheck       # unchecked errors
+    - gosimple       # simplification suggestions
+    - govet          # suspicious constructs
+    - ineffassign    # unused assignments
+    - staticcheck    # comprehensive static analysis
+    - unused         # unused code
+    - gofmt          # formatting
+    - goimports      # import ordering
+    - gocritic       # various code issues
+    - misspell       # spelling mistakes in comments/strings
+    - noctx          # HTTP requests without context
+    - bodyclose      # HTTP response body not closed
+    - revive         # replacement for golint
+
+linters-settings:
+  govet:
+    enable-all: true
+    disable:
+      - fieldalignment  # don't require struct field reordering
+  revive:
+    rules:
+      - name: exported
+        disabled: true  # don't require doc comments on all exports
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - style
+    disabled-checks:
+      - hugeParam       # not applicable for this project size
+
+issues:
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - errcheck
+  max-issues-per-linter: 0
+  max-same-issues: 0
