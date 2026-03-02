@@ -346,7 +346,7 @@ func buildVLCCommand(screen db.Screen, filePath string) *exec.Cmd {
 		"--video-y", fmt.Sprintf("%d", screen.Y),
 		"--width", fmt.Sprintf("%d", screen.Width),
 		"--height", fmt.Sprintf("%d", screen.Height),
-		"--fullscreen",
+		"--no-video-deco",
 		"--loop",
 		filePath,
 	}
