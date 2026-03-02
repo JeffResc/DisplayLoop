@@ -28,13 +28,22 @@ func (a *App) HandleDashboard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	ids := make([]int, len(screens))
+	for i, s := range screens {
+		ids[i] = s.ID
+	}
+	mediaMap, err := db.GetCurrentMediaBulk(a.DB, ids)
+	if err != nil {
+		a.respondError(w, http.StatusInternalServerError, "failed to load media")
+		return
+	}
+
 	var summaries []ScreenSummary
 	for _, s := range screens {
-		media, _ := db.GetCurrentMedia(a.DB, s.ID)
 		summaries = append(summaries, ScreenSummary{
 			Screen:       s,
 			Status:       a.Players.GetStatus(s.ID),
-			CurrentMedia: media,
+			CurrentMedia: mediaMap[s.ID],
 		})
 	}
 

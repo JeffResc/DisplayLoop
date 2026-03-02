@@ -2,6 +2,7 @@ package db
 
 import (
 	"database/sql"
+	"strings"
 	"time"
 )
 
@@ -173,6 +174,38 @@ func GetMedia(db *sql.DB, id int) (*Media, error) {
 	return scanMedia(row)
 }
 
+// GetCurrentMediaBulk returns the current media for multiple screens in one query.
+// The returned map is keyed by screen ID; screens with no media are absent.
+func GetCurrentMediaBulk(db *sql.DB, screenIDs []int) (map[int]*Media, error) {
+	if len(screenIDs) == 0 {
+		return make(map[int]*Media), nil
+	}
+	placeholders := make([]string, len(screenIDs))
+	args := make([]any, len(screenIDs))
+	for i, id := range screenIDs {
+		placeholders[i] = "?"
+		args[i] = id
+	}
+	rows, err := db.Query(`
+		SELECT m.id, m.screen_id, m.filename, m.original_name, m.media_type, m.file_size, m.uploaded_at, m.scrubbed_at
+		FROM screen_state ss
+		JOIN media m ON m.id = ss.media_id
+		WHERE ss.screen_id IN (`+strings.Join(placeholders, ",")+`)`, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	result := make(map[int]*Media, len(screenIDs))
+	for rows.Next() {
+		m, err := scanMedia(rows)
+		if err != nil {
+			return nil, err
+		}
+		result[m.ScreenID] = m
+	}
+	return result, rows.Err()
+}
+
 func GetCurrentMedia(db *sql.DB, screenID int) (*Media, error) {
 	row := db.QueryRow(`
 		SELECT m.id, m.screen_id, m.filename, m.original_name, m.media_type, m.file_size, m.uploaded_at, m.scrubbed_at
@@ -282,6 +315,43 @@ func ListAuditLog(db *sql.DB, screenID int, limit int) ([]AuditEntry, error) {
 		entries = append(entries, e)
 	}
 	return entries, rows.Err()
+}
+
+func GetAuditEntry(db *sql.DB, id int) (*AuditEntry, error) {
+	row := db.QueryRow(`
+		SELECT a.id, a.screen_id, s.name,
+		       a.event_type,
+		       a.media_id, COALESCE(m.original_name,''), COALESCE(m.scrubbed_at IS NOT NULL, 0),
+		       a.previous_media_id, COALESCE(pm.original_name,''), COALESCE(pm.scrubbed_at IS NOT NULL, 0),
+		       COALESCE(a.note,''), a.created_at
+		FROM audit_log a
+		JOIN screens s ON s.id = a.screen_id
+		LEFT JOIN media m  ON m.id  = a.media_id
+		LEFT JOIN media pm ON pm.id = a.previous_media_id
+		WHERE a.id = ?`, id)
+	var e AuditEntry
+	var mid, pmid sql.NullInt64
+	var mScrubbed, pmScrubbed sql.NullBool
+	if err := row.Scan(
+		&e.ID, &e.ScreenID, &e.ScreenName,
+		&e.EventType,
+		&mid, &e.MediaOrigName, &mScrubbed,
+		&pmid, &e.PrevMediaOrigName, &pmScrubbed,
+		&e.Note, &e.CreatedAt,
+	); err != nil {
+		return nil, err
+	}
+	if mid.Valid {
+		v := int(mid.Int64)
+		e.MediaID = &v
+	}
+	if pmid.Valid {
+		v := int(pmid.Int64)
+		e.PrevMediaID = &v
+	}
+	e.MediaScrubbed = mScrubbed.Bool
+	e.PrevMediaScrubbed = pmScrubbed.Bool
+	return &e, nil
 }
 
 func DeleteOldAuditLog(db *sql.DB, cutoff time.Time) (int64, error) {

@@ -75,6 +75,7 @@ func main() {
 		UploadsDir:    cfg.Server.UploadsDir,
 		TemplateFS:    templateFS,
 		TemplateFuncs: templateFuncs,
+		Hub:           handler.NewSSEHub(),
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -111,7 +112,15 @@ func main() {
 	r.Get("/media/{id}/{filename}", app.HandleMediaServe)
 
 	addr := fmt.Sprintf(":%d", cfg.Server.Port)
-	srv := &http.Server{Addr: addr, Handler: r}
+	srv := &http.Server{
+		Addr:    addr,
+		Handler: r,
+		// ReadHeaderTimeout guards against slow-header attacks.
+		// ReadTimeout is intentionally omitted to allow large video uploads.
+		// WriteTimeout is intentionally omitted to allow long-lived SSE streams.
+		ReadHeaderTimeout: 10 * time.Second,
+		IdleTimeout:       2 * time.Minute,
+	}
 
 	go func() {
 		log.Printf("DisplayLoop listening on http://localhost%s", addr)
@@ -140,6 +149,7 @@ func buildTemplateAssets() (fs.FS, template.FuncMap, error) {
 	funcs := template.FuncMap{
 		"buildVersion": func() string { return version },
 		"buildCommit":  func() string { return commit },
+		"basename":     filepath.Base,
 		"formatTime": func(t time.Time) string {
 			return t.Format("Jan 2, 2006 3:04 PM")
 		},

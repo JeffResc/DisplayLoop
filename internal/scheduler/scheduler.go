@@ -153,12 +153,3 @@ func (s *Scheduler) evaluateScreen(screen db.Screen, now time.Time) error {
 	return nil
 }
 
-// IsImageFile reports whether the given path is an image based on extension.
-func IsImageFile(filename string) bool {
-	ext := strings.ToLower(filepath.Ext(filename))
-	switch ext {
-	case ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp":
-		return true
-	}
-	return false
-}

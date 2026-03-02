@@ -13,12 +13,13 @@ import (
 
 // App holds shared dependencies for all handlers.
 type App struct {
-	DB           *sql.DB
-	Players      *player.Manager
-	Scheduler    *scheduler.Scheduler
-	UploadsDir   string
-	TemplateFS   fs.FS
+	DB            *sql.DB
+	Players       *player.Manager
+	Scheduler     *scheduler.Scheduler
+	UploadsDir    string
+	TemplateFS    fs.FS
 	TemplateFuncs template.FuncMap
+	Hub           *SSEHub
 }
 
 // render parses layout.html + the named page template together and executes

@@ -70,9 +70,6 @@ func (h *SSEHub) Broadcast(msg string) {
 	}
 }
 
-// SSEHub is attached to App.
-var Hub = NewSSEHub()
-
 func (a *App) HandleStatusStream(w http.ResponseWriter, r *http.Request) {
 	flusher, ok := w.(http.Flusher)
 	if !ok {
@@ -85,8 +82,8 @@ func (a *App) HandleStatusStream(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Connection", "keep-alive")
 	w.Header().Set("X-Accel-Buffering", "no")
 
-	ch := Hub.subscribe()
-	defer Hub.unsubscribe(ch)
+	ch := a.Hub.subscribe()
+	defer a.Hub.unsubscribe(ch)
 
 	// Send initial payload immediately.
 	if payload, err := a.buildStatusPayload(); err == nil {
@@ -126,7 +123,7 @@ func (a *App) StartBroadcaster(ctx context.Context) {
 				if err != nil {
 					continue
 				}
-				Hub.Broadcast(string(data))
+				a.Hub.Broadcast(string(data))
 			}
 		}
 	}()

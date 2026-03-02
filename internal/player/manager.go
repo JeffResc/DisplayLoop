@@ -49,12 +49,13 @@ type ScreenStatus struct {
 }
 
 type screenEntry struct {
-	cmd         *exec.Cmd
-	filePath    string
-	status      Status
-	startedAt   time.Time
-	screen      db.Screen
-	isOffHours  bool
+	cmd        *exec.Cmd
+	done       chan struct{} // closed when cmd.Wait() returns
+	filePath   string
+	status     Status
+	startedAt  time.Time
+	screen     db.Screen
+	isOffHours bool
 }
 
 // Manager controls VLC subprocesses, one per screen.
@@ -110,15 +111,18 @@ func (m *Manager) Play(screen db.Screen, filePath string, isImage bool) error {
 	m.stopLocked(screen.ID)
 
 	var cmd *exec.Cmd
+	var done chan struct{}
 	if !m.dryRun {
-		cmd = buildVLCCommand(screen, filePath, isImage)
-		if err := cmd.Start(); err != nil {
+		var err error
+		cmd, done, err = startVLC(screen, filePath, isImage)
+		if err != nil {
 			return fmt.Errorf("start vlc for screen %d: %w", screen.ID, err)
 		}
 	}
 
 	m.entries[screen.ID] = &screenEntry{
 		cmd:       cmd,
+		done:      done,
 		filePath:  filePath,
 		status:    StatusPlaying,
 		startedAt: time.Now(),
@@ -142,15 +146,18 @@ func (m *Manager) PlayOffHours(screen db.Screen) error {
 	}
 
 	var cmd *exec.Cmd
+	var done chan struct{}
 	if !m.dryRun {
-		cmd = buildVLCCommand(screen, filePath, true)
-		if err := cmd.Start(); err != nil {
+		var err error
+		cmd, done, err = startVLC(screen, filePath, true)
+		if err != nil {
 			return fmt.Errorf("start vlc off-hours for screen %d: %w", screen.ID, err)
 		}
 	}
 
 	m.entries[screen.ID] = &screenEntry{
 		cmd:        cmd,
+		done:       done,
 		filePath:   filePath,
 		status:     StatusOffHours,
 		startedAt:  time.Now(),
@@ -183,7 +190,11 @@ func (m *Manager) stopLocked(screenID int) {
 	}
 	if e.cmd != nil && e.cmd.Process != nil {
 		_ = e.cmd.Process.Kill()
-		_ = e.cmd.Wait()
+		// Wait for the background Wait() goroutine to finish so the process
+		// is fully reaped before we replace the entry.
+		if e.done != nil {
+			<-e.done
+		}
 	}
 	delete(m.entries, screenID)
 }
@@ -267,25 +278,49 @@ func (m *Manager) healthCheck() {
 	defer m.mu.Unlock()
 
 	for screenID, e := range m.entries {
-		if m.disconnected[screenID] {
+		if m.disconnected[screenID] || e.cmd == nil || e.done == nil {
 			continue
 		}
-		if e.cmd != nil && e.cmd.ProcessState != nil && e.cmd.ProcessState.Exited() {
+		// Non-blocking check: has the Wait() goroutine finished (i.e. VLC exited)?
+		select {
+		case <-e.done:
+			// VLC exited unexpectedly; restart it.
 			log.Printf("VLC for screen %d exited unexpectedly, restarting", screenID)
-			cmd := buildVLCCommand(e.screen, e.filePath, isImageFile(e.filePath))
-			if err := cmd.Start(); err != nil {
+			cmd, done, err := startVLC(e.screen, e.filePath, isImageFile(e.filePath))
+			if err != nil {
 				log.Printf("restart VLC screen %d: %v", screenID, err)
 				e.status = StatusError
+				e.cmd = nil
+				e.done = nil
 				continue
 			}
 			e.cmd = cmd
+			e.done = done
 			e.startedAt = time.Now()
-			e.status = StatusPlaying
 			if e.isOffHours {
 				e.status = StatusOffHours
+			} else {
+				e.status = StatusPlaying
 			}
+		default:
+			// Still running.
 		}
 	}
+}
+
+// startVLC starts a VLC subprocess and returns the cmd and a done channel that
+// is closed when the process exits (i.e. when cmd.Wait() returns).
+func startVLC(screen db.Screen, filePath string, isImage bool) (*exec.Cmd, chan struct{}, error) {
+	cmd := buildVLCCommand(screen, filePath, isImage)
+	if err := cmd.Start(); err != nil {
+		return nil, nil, err
+	}
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		_ = cmd.Wait()
+	}()
+	return cmd, done, nil
 }
 
 func buildVLCCommand(screen db.Screen, filePath string, isImage bool) *exec.Cmd {
@@ -294,12 +329,11 @@ func buildVLCCommand(screen db.Screen, filePath string, isImage bool) *exec.Cmd 
 		"--no-video-title-show",
 		"--no-metadata-network-access",
 		"--no-osd",
-		"--no-embedded-video",
+		"--no-video-deco",
 		fmt.Sprintf("--video-x=%d", screen.X),
 		fmt.Sprintf("--video-y=%d", screen.Y),
 		fmt.Sprintf("--width=%d", screen.Width),
 		fmt.Sprintf("--height=%d", screen.Height),
-		"--fullscreen",
 		"--loop",
 	}
 	if isImage {

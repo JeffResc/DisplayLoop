@@ -1,9 +1,11 @@
 package handler
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"path/filepath"
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
@@ -84,6 +86,10 @@ func (a *App) HandleScreenUpdateHours(w http.ResponseWriter, r *http.Request) {
 		}
 		if end == "" {
 			end = "23:59"
+		}
+		if !isValidHHMM(start) || !isValidHHMM(end) {
+			a.respondError(w, http.StatusBadRequest, "invalid time format for "+day)
+			return
 		}
 		ws[day] = scheduler.DaySchedule{Enabled: enabled, Start: start, End: end}
 	}
@@ -168,22 +174,21 @@ func (a *App) HandleRollback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Load audit entry to find previous media.
-	entries, err := db.ListAuditLog(a.DB, screenID, 0)
-	if err != nil {
-		a.respondError(w, http.StatusInternalServerError, "failed to load audit log")
+	target, err := db.GetAuditEntry(a.DB, auditID)
+	if err == sql.ErrNoRows {
+		a.respondError(w, http.StatusBadRequest, "audit entry not found")
 		return
 	}
-
-	var target *db.AuditEntry
-	for i := range entries {
-		if entries[i].ID == auditID {
-			target = &entries[i]
-			break
-		}
+	if err != nil {
+		a.respondError(w, http.StatusInternalServerError, "failed to load audit entry")
+		return
 	}
-
-	if target == nil || target.PrevMediaID == nil {
+	// Prevent using another screen's audit entry.
+	if target.ScreenID != screenID {
+		a.respondError(w, http.StatusBadRequest, "audit entry does not belong to this screen")
+		return
+	}
+	if target.PrevMediaID == nil {
 		a.respondError(w, http.StatusBadRequest, "no rollback target found")
 		return
 	}
@@ -205,11 +210,27 @@ func (a *App) HandleRollback(w http.ResponseWriter, r *http.Request) {
 		prevID = currentState.MediaID
 	}
 	_ = db.InsertAuditLog(a.DB, screenID, "rollback", target.PrevMediaID, prevID, fmt.Sprintf("from audit #%d", auditID))
-	a.Scheduler.Evaluate()
+
+	// Directly restart VLC with the rolled-back content so it takes effect
+	// immediately, regardless of whether VLC is already running something else.
+	screen, err := db.GetScreen(a.DB, screenID)
+	if err == nil {
+		filePath := filepath.Join(a.UploadsDir, itoa(screenID), "content", prevMedia.Filename)
+		isImage := prevMedia.MediaType == "image"
+		_ = a.Players.Play(*screen, filePath, isImage)
+	}
+
 	a.redirect(w, r, "/screens/"+itoa(screenID))
 }
 
 // --- helpers ---
+
+// isValidHHMM returns true if s is a valid 24-hour time in "HH:MM" format.
+func isValidHHMM(s string) bool {
+	var h, m int
+	n, _ := fmt.Sscanf(s, "%d:%d", &h, &m)
+	return n == 2 && h >= 0 && h <= 23 && m >= 0 && m <= 59
+}
 
 func screenIDFromURL(r *http.Request) int {
 	id, _ := strconv.Atoi(chi.URLParam(r, "id"))
