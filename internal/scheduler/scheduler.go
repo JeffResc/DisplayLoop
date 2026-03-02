@@ -85,7 +85,7 @@ func New(database *sql.DB, players *player.Manager, uploadsDir string) *Schedule
 
 // Run starts the scheduler loop. Call Evaluate to trigger an immediate check.
 func (s *Scheduler) Run(ctx context.Context) {
-	s.Evaluate()
+	s.Evaluate(ctx)
 	ticker := time.NewTicker(60 * time.Second)
 	defer ticker.Stop()
 	for {
@@ -93,14 +93,14 @@ func (s *Scheduler) Run(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			s.Evaluate()
+			s.Evaluate(ctx)
 		}
 	}
 }
 
 // Evaluate checks all screens and updates VLC state as needed.
-func (s *Scheduler) Evaluate() {
-	screens, err := db.ListScreens(s.database)
+func (s *Scheduler) Evaluate(ctx context.Context) {
+	screens, err := db.ListScreens(ctx, s.database)
 	if err != nil {
 		log.Printf("scheduler: list screens: %v", err)
 		return
@@ -108,13 +108,13 @@ func (s *Scheduler) Evaluate() {
 
 	now := time.Now()
 	for _, screen := range screens {
-		if err := s.evaluateScreen(screen, now); err != nil {
+		if err := s.evaluateScreen(ctx, screen, now); err != nil {
 			log.Printf("scheduler: screen %d (%s): %v", screen.ID, screen.Name, err)
 		}
 	}
 }
 
-func (s *Scheduler) evaluateScreen(screen db.Screen, now time.Time) error {
+func (s *Scheduler) evaluateScreen(ctx context.Context, screen db.Screen, now time.Time) error {
 	if !screen.Enabled {
 		s.players.Stop(screen.ID)
 		return nil
@@ -131,7 +131,7 @@ func (s *Scheduler) evaluateScreen(screen db.Screen, now time.Time) error {
 		// Should be playing content.
 		if s.players.IsOffHours(screen.ID) || !s.players.IsRunning(screen.ID) {
 			// Need to start or switch to content.
-			currentMedia, err := db.GetCurrentMedia(s.database, screen.ID)
+			currentMedia, err := db.GetCurrentMedia(ctx, s.database, screen.ID)
 			if err != nil {
 				return fmt.Errorf("get current media: %w", err)
 			}
@@ -152,4 +152,3 @@ func (s *Scheduler) evaluateScreen(screen db.Screen, now time.Time) error {
 	}
 	return nil
 }
-

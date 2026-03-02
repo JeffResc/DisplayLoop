@@ -1,7 +1,9 @@
 package db
 
 import (
+	"context"
 	"database/sql"
+	"errors"
 	"strings"
 	"time"
 )
@@ -36,18 +38,18 @@ type Media struct {
 
 // AuditEntry is a row from audit_log with joined media info.
 type AuditEntry struct {
-	ID               int
-	ScreenID         int
-	ScreenName       string
-	EventType        string
-	MediaID          *int
-	MediaOrigName    string
-	MediaScrubbed    bool
-	PrevMediaID      *int
+	ID                int
+	ScreenID          int
+	ScreenName        string
+	EventType         string
+	MediaID           *int
+	MediaOrigName     string
+	MediaScrubbed     bool
+	PrevMediaID       *int
 	PrevMediaOrigName string
 	PrevMediaScrubbed bool
-	Note             string
-	CreatedAt        time.Time
+	Note              string
+	CreatedAt         time.Time
 }
 
 // ScreenState holds the current active media for a screen.
@@ -59,8 +61,8 @@ type ScreenState struct {
 
 // --- Screens ---
 
-func InsertScreen(db *sql.DB, s Screen) (int64, error) {
-	res, err := db.Exec(`
+func InsertScreen(ctx context.Context, db *sql.DB, s Screen) (int64, error) {
+	res, err := db.ExecContext(ctx, `
 		INSERT INTO screens (name, display_name, x, y, width, height, enabled, off_hours_mode, operating_hours)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		s.Name, s.DisplayName, s.X, s.Y, s.Width, s.Height, boolInt(s.Enabled), s.OffHoursMode, s.OperatingHours,
@@ -73,19 +75,19 @@ func InsertScreen(db *sql.DB, s Screen) (int64, error) {
 		return 0, err
 	}
 	// create initial screen_state row
-	_, err = db.Exec(`INSERT INTO screen_state (screen_id) VALUES (?)`, id)
+	_, err = db.ExecContext(ctx, `INSERT INTO screen_state (screen_id) VALUES (?)`, id)
 	return id, err
 }
 
-func GetScreen(db *sql.DB, id int) (*Screen, error) {
-	row := db.QueryRow(`SELECT id, name, display_name, x, y, width, height, enabled,
+func GetScreen(ctx context.Context, db *sql.DB, id int) (*Screen, error) {
+	row := db.QueryRowContext(ctx, `SELECT id, name, display_name, x, y, width, height, enabled,
 		off_hours_mode, COALESCE(off_hours_image_path,''), operating_hours, created_at, updated_at
 		FROM screens WHERE id = ?`, id)
 	return scanScreen(row)
 }
 
-func ListScreens(db *sql.DB) ([]Screen, error) {
-	rows, err := db.Query(`SELECT id, name, display_name, x, y, width, height, enabled,
+func ListScreens(ctx context.Context, db *sql.DB) ([]Screen, error) {
+	rows, err := db.QueryContext(ctx, `SELECT id, name, display_name, x, y, width, height, enabled,
 		off_hours_mode, COALESCE(off_hours_image_path,''), operating_hours, created_at, updated_at
 		FROM screens ORDER BY id`)
 	if err != nil {
@@ -103,36 +105,36 @@ func ListScreens(db *sql.DB) ([]Screen, error) {
 	return screens, rows.Err()
 }
 
-func UpdateScreenName(db *sql.DB, id int, name string) error {
-	_, err := db.Exec(`UPDATE screens SET name=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`, name, id)
+func UpdateScreenName(ctx context.Context, db *sql.DB, id int, name string) error {
+	_, err := db.ExecContext(ctx, `UPDATE screens SET name=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`, name, id)
 	return err
 }
 
-func UpdateScreenEnabled(db *sql.DB, id int, enabled bool) error {
-	_, err := db.Exec(`UPDATE screens SET enabled=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`, boolInt(enabled), id)
+func UpdateScreenEnabled(ctx context.Context, db *sql.DB, id int, enabled bool) error {
+	_, err := db.ExecContext(ctx, `UPDATE screens SET enabled=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`, boolInt(enabled), id)
 	return err
 }
 
-func UpdateScreenHours(db *sql.DB, id int, hours string) error {
-	_, err := db.Exec(`UPDATE screens SET operating_hours=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`, hours, id)
+func UpdateScreenHours(ctx context.Context, db *sql.DB, id int, hours string) error {
+	_, err := db.ExecContext(ctx, `UPDATE screens SET operating_hours=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`, hours, id)
 	return err
 }
 
-func UpdateScreenOffHours(db *sql.DB, id int, mode, imagePath string) error {
-	_, err := db.Exec(`UPDATE screens SET off_hours_mode=?, off_hours_image_path=NULLIF(?,?), updated_at=CURRENT_TIMESTAMP WHERE id=?`,
+func UpdateScreenOffHours(ctx context.Context, db *sql.DB, id int, mode, imagePath string) error {
+	_, err := db.ExecContext(ctx, `UPDATE screens SET off_hours_mode=?, off_hours_image_path=NULLIF(?,?), updated_at=CURRENT_TIMESTAMP WHERE id=?`,
 		mode, imagePath, "", id)
 	return err
 }
 
-func DeleteScreen(db *sql.DB, id int) error {
-	_, err := db.Exec(`DELETE FROM screens WHERE id=?`, id)
+func DeleteScreen(ctx context.Context, db *sql.DB, id int) error {
+	_, err := db.ExecContext(ctx, `DELETE FROM screens WHERE id=?`, id)
 	return err
 }
 
 // --- Screen State ---
 
-func GetScreenState(db *sql.DB, screenID int) (*ScreenState, error) {
-	row := db.QueryRow(`SELECT screen_id, media_id, updated_at FROM screen_state WHERE screen_id=?`, screenID)
+func GetScreenState(ctx context.Context, db *sql.DB, screenID int) (*ScreenState, error) {
+	row := db.QueryRowContext(ctx, `SELECT screen_id, media_id, updated_at FROM screen_state WHERE screen_id=?`, screenID)
 	var st ScreenState
 	var mid sql.NullInt64
 	if err := row.Scan(&st.ScreenID, &mid, &st.UpdatedAt); err != nil {
@@ -145,19 +147,19 @@ func GetScreenState(db *sql.DB, screenID int) (*ScreenState, error) {
 	return &st, nil
 }
 
-func SetScreenMedia(db *sql.DB, screenID int, mediaID *int) error {
+func SetScreenMedia(ctx context.Context, db *sql.DB, screenID int, mediaID *int) error {
 	if mediaID == nil {
-		_, err := db.Exec(`UPDATE screen_state SET media_id=NULL, updated_at=CURRENT_TIMESTAMP WHERE screen_id=?`, screenID)
+		_, err := db.ExecContext(ctx, `UPDATE screen_state SET media_id=NULL, updated_at=CURRENT_TIMESTAMP WHERE screen_id=?`, screenID)
 		return err
 	}
-	_, err := db.Exec(`UPDATE screen_state SET media_id=?, updated_at=CURRENT_TIMESTAMP WHERE screen_id=?`, *mediaID, screenID)
+	_, err := db.ExecContext(ctx, `UPDATE screen_state SET media_id=?, updated_at=CURRENT_TIMESTAMP WHERE screen_id=?`, *mediaID, screenID)
 	return err
 }
 
 // --- Media ---
 
-func InsertMedia(db *sql.DB, m Media) (int64, error) {
-	res, err := db.Exec(`
+func InsertMedia(ctx context.Context, db *sql.DB, m Media) (int64, error) {
+	res, err := db.ExecContext(ctx, `
 		INSERT INTO media (screen_id, filename, original_name, media_type, file_size)
 		VALUES (?, ?, ?, ?, ?)`,
 		m.ScreenID, m.Filename, m.OriginalName, m.MediaType, m.FileSize,
@@ -168,15 +170,15 @@ func InsertMedia(db *sql.DB, m Media) (int64, error) {
 	return res.LastInsertId()
 }
 
-func GetMedia(db *sql.DB, id int) (*Media, error) {
-	row := db.QueryRow(`SELECT id, screen_id, filename, original_name, media_type, file_size, uploaded_at, scrubbed_at
+func GetMedia(ctx context.Context, db *sql.DB, id int) (*Media, error) {
+	row := db.QueryRowContext(ctx, `SELECT id, screen_id, filename, original_name, media_type, file_size, uploaded_at, scrubbed_at
 		FROM media WHERE id=?`, id)
 	return scanMedia(row)
 }
 
 // GetCurrentMediaBulk returns the current media for multiple screens in one query.
 // The returned map is keyed by screen ID; screens with no media are absent.
-func GetCurrentMediaBulk(db *sql.DB, screenIDs []int) (map[int]*Media, error) {
+func GetCurrentMediaBulk(ctx context.Context, db *sql.DB, screenIDs []int) (map[int]*Media, error) {
 	if len(screenIDs) == 0 {
 		return make(map[int]*Media), nil
 	}
@@ -186,7 +188,7 @@ func GetCurrentMediaBulk(db *sql.DB, screenIDs []int) (map[int]*Media, error) {
 		placeholders[i] = "?"
 		args[i] = id
 	}
-	rows, err := db.Query(`
+	rows, err := db.QueryContext(ctx, `
 		SELECT m.id, m.screen_id, m.filename, m.original_name, m.media_type, m.file_size, m.uploaded_at, m.scrubbed_at
 		FROM screen_state ss
 		JOIN media m ON m.id = ss.media_id
@@ -206,22 +208,22 @@ func GetCurrentMediaBulk(db *sql.DB, screenIDs []int) (map[int]*Media, error) {
 	return result, rows.Err()
 }
 
-func GetCurrentMedia(db *sql.DB, screenID int) (*Media, error) {
-	row := db.QueryRow(`
+func GetCurrentMedia(ctx context.Context, db *sql.DB, screenID int) (*Media, error) {
+	row := db.QueryRowContext(ctx, `
 		SELECT m.id, m.screen_id, m.filename, m.original_name, m.media_type, m.file_size, m.uploaded_at, m.scrubbed_at
 		FROM media m
 		JOIN screen_state ss ON ss.media_id = m.id
 		WHERE ss.screen_id = ?`, screenID)
 	m, err := scanMedia(row)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	return m, err
 }
 
 // ScrubableMedia returns media that can be deleted: not current, older than cutoff, not yet scrubbed.
-func ScrubableMedia(db *sql.DB, cutoff time.Time) ([]Media, error) {
-	rows, err := db.Query(`
+func ScrubableMedia(ctx context.Context, db *sql.DB, cutoff time.Time) ([]Media, error) {
+	rows, err := db.QueryContext(ctx, `
 		SELECT m.id, m.screen_id, m.filename, m.original_name, m.media_type, m.file_size, m.uploaded_at, m.scrubbed_at
 		FROM media m
 		WHERE m.scrubbed_at IS NULL
@@ -244,15 +246,15 @@ func ScrubableMedia(db *sql.DB, cutoff time.Time) ([]Media, error) {
 	return result, rows.Err()
 }
 
-func MarkMediaScrubbed(db *sql.DB, id int) error {
-	_, err := db.Exec(`UPDATE media SET scrubbed_at=CURRENT_TIMESTAMP WHERE id=?`, id)
+func MarkMediaScrubbed(ctx context.Context, db *sql.DB, id int) error {
+	_, err := db.ExecContext(ctx, `UPDATE media SET scrubbed_at=CURRENT_TIMESTAMP WHERE id=?`, id)
 	return err
 }
 
 // --- Audit Log ---
 
-func InsertAuditLog(db *sql.DB, screenID int, eventType string, mediaID, prevMediaID *int, note string) error {
-	_, err := db.Exec(`
+func InsertAuditLog(ctx context.Context, db *sql.DB, screenID int, eventType string, mediaID, prevMediaID *int, note string) error {
+	_, err := db.ExecContext(ctx, `
 		INSERT INTO audit_log (screen_id, event_type, media_id, previous_media_id, note)
 		VALUES (?, ?, ?, ?, ?)`,
 		screenID, eventType, intPtrToNull(mediaID), intPtrToNull(prevMediaID), nullableString(note),
@@ -260,7 +262,7 @@ func InsertAuditLog(db *sql.DB, screenID int, eventType string, mediaID, prevMed
 	return err
 }
 
-func ListAuditLog(db *sql.DB, screenID int, limit int) ([]AuditEntry, error) {
+func ListAuditLog(ctx context.Context, db *sql.DB, screenID int, limit int) ([]AuditEntry, error) {
 	query := `
 		SELECT a.id, a.screen_id, s.name,
 		       a.event_type,
@@ -282,7 +284,7 @@ func ListAuditLog(db *sql.DB, screenID int, limit int) ([]AuditEntry, error) {
 		args = append(args, limit)
 	}
 
-	rows, err := db.Query(query, args...)
+	rows, err := db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -317,8 +319,8 @@ func ListAuditLog(db *sql.DB, screenID int, limit int) ([]AuditEntry, error) {
 	return entries, rows.Err()
 }
 
-func GetAuditEntry(db *sql.DB, id int) (*AuditEntry, error) {
-	row := db.QueryRow(`
+func GetAuditEntry(ctx context.Context, db *sql.DB, id int) (*AuditEntry, error) {
+	row := db.QueryRowContext(ctx, `
 		SELECT a.id, a.screen_id, s.name,
 		       a.event_type,
 		       a.media_id, COALESCE(m.original_name,''), COALESCE(m.scrubbed_at IS NOT NULL, 0),
@@ -354,8 +356,8 @@ func GetAuditEntry(db *sql.DB, id int) (*AuditEntry, error) {
 	return &e, nil
 }
 
-func DeleteOldAuditLog(db *sql.DB, cutoff time.Time) (int64, error) {
-	res, err := db.Exec(`DELETE FROM audit_log WHERE created_at < ?`, cutoff)
+func DeleteOldAuditLog(ctx context.Context, db *sql.DB, cutoff time.Time) (int64, error) {
+	res, err := db.ExecContext(ctx, `DELETE FROM audit_log WHERE created_at < ?`, cutoff)
 	if err != nil {
 		return 0, err
 	}

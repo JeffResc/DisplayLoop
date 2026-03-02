@@ -28,7 +28,7 @@ func New(database *sql.DB, players *player.Manager, sched *scheduler.Scheduler) 
 
 // Run starts the polling loop. It performs an immediate check on start.
 func (m *Monitor) Run(ctx context.Context) {
-	m.check()
+	m.check(ctx)
 	ticker := time.NewTicker(10 * time.Second)
 	defer ticker.Stop()
 	for {
@@ -36,20 +36,20 @@ func (m *Monitor) Run(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			m.check()
+			m.check(ctx)
 		}
 	}
 }
 
-func (m *Monitor) check() {
-	connected, err := display.ConnectedNames()
+func (m *Monitor) check(ctx context.Context) {
+	connected, err := display.ConnectedNames(ctx)
 	if err != nil {
 		// xrandr may not be available in --no-vlc dev mode; log and continue.
 		log.Printf("monitor: xrandr query failed: %v", err)
 		return
 	}
 
-	screens, err := db.ListScreens(m.database)
+	screens, err := db.ListScreens(ctx, m.database)
 	if err != nil {
 		log.Printf("monitor: list screens: %v", err)
 		return
@@ -72,7 +72,7 @@ func (m *Monitor) check() {
 			// Reconnected — clear flag and let the scheduler restart playback.
 			log.Printf("monitor: display %q (%s) reconnected", screen.Name, screen.DisplayName)
 			m.players.ClearDisconnected(screen.ID)
-			m.scheduler.Evaluate()
+			m.scheduler.Evaluate(ctx)
 		}
 	}
 }

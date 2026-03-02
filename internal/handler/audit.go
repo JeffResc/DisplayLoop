@@ -12,7 +12,7 @@ type AuditData struct {
 }
 
 func (a *App) HandleAuditLog(w http.ResponseWriter, r *http.Request) {
-	entries, err := db.ListAuditLog(a.DB, 0, 200)
+	entries, err := db.ListAuditLog(r.Context(), a.DB, 0, 200)
 	if err != nil {
 		a.respondError(w, http.StatusInternalServerError, "failed to load audit log")
 		return
