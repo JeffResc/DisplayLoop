@@ -194,6 +194,36 @@
       </form>
     </section>
 
+    {{if .DisplayInfo}}
+    <!-- Display Mode -->
+    <section class="bg-gray-900 border border-gray-800 rounded-xl p-5">
+      <h2 class="font-semibold text-white mb-4">Display Mode</h2>
+      {{if .DisplayInfo.Modes}}
+      <form method="POST" action="/screens/{{.Screen.ID}}/resolution" class="space-y-3">
+        <div>
+          <label class="block text-xs text-gray-400 mb-1">Resolution &amp; Refresh Rate</label>
+          <select name="mode"
+                  class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500">
+            {{range .DisplayInfo.Modes}}
+            {{$modeName := .Name}}
+            {{range .Rates}}
+            <option value="{{$modeName}}@{{printf "%.2f" .Rate}}"{{if .Current}} selected{{end}}>
+              {{$modeName}} @ {{printf "%.2f" .Rate}} Hz{{if .Preferred}} (preferred){{end}}
+            </option>
+            {{end}}
+            {{end}}
+          </select>
+        </div>
+        <button type="submit" class="bg-gray-800 hover:bg-gray-700 text-white text-sm px-4 py-2 rounded-lg transition-colors">
+          Apply
+        </button>
+      </form>
+      {{else}}
+      <p class="text-sm text-gray-500">No mode information available for this display.</p>
+      {{end}}
+    </section>
+    {{end}}
+
   </div>
 </div>
 
