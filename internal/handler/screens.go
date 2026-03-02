@@ -172,6 +172,68 @@ func (a *App) HandleScreenUpdateOffHours(w http.ResponseWriter, r *http.Request)
 	a.redirect(w, r, "/screens/"+itoa(id))
 }
 
+func (a *App) HandleScreenApplyHoursAll(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	id := screenIDFromURL(r)
+
+	screen, err := db.GetScreen(ctx, a.DB, id)
+	if err != nil {
+		a.respondError(w, http.StatusNotFound, "screen not found")
+		return
+	}
+
+	screens, err := db.ListScreens(ctx, a.DB)
+	if err != nil {
+		a.respondError(w, http.StatusInternalServerError, "failed to list screens")
+		return
+	}
+
+	for _, s := range screens {
+		if s.ID == id {
+			continue
+		}
+		if err := db.UpdateScreenHours(ctx, a.DB, s.ID, screen.OperatingHours); err != nil {
+			a.respondError(w, http.StatusInternalServerError, "failed to update hours")
+			return
+		}
+		_ = db.InsertAuditLog(ctx, a.DB, s.ID, "hours_changed", nil, nil, fmt.Sprintf("copied from screen %d", id))
+	}
+
+	a.Scheduler.Evaluate(ctx)
+	a.redirect(w, r, "/screens/"+itoa(id))
+}
+
+func (a *App) HandleScreenApplyOffHoursAll(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	id := screenIDFromURL(r)
+
+	screen, err := db.GetScreen(ctx, a.DB, id)
+	if err != nil {
+		a.respondError(w, http.StatusNotFound, "screen not found")
+		return
+	}
+
+	screens, err := db.ListScreens(ctx, a.DB)
+	if err != nil {
+		a.respondError(w, http.StatusInternalServerError, "failed to list screens")
+		return
+	}
+
+	for _, s := range screens {
+		if s.ID == id {
+			continue
+		}
+		if err := db.UpdateScreenOffHours(ctx, a.DB, s.ID, screen.OffHoursMode, screen.OffHoursImagePath); err != nil {
+			a.respondError(w, http.StatusInternalServerError, "failed to update off-hours")
+			return
+		}
+		_ = db.InsertAuditLog(ctx, a.DB, s.ID, "off_hours_changed", nil, nil, fmt.Sprintf("mode=%s copied from screen %d", screen.OffHoursMode, id))
+	}
+
+	a.Scheduler.Evaluate(ctx)
+	a.redirect(w, r, "/screens/"+itoa(id))
+}
+
 // HandleScreenSetResolution applies a resolution/refresh-rate change via xrandr.
 // Form value "mode" is encoded as "{modeName}@{rate}", e.g. "1920x1080@60.00".
 func (a *App) HandleScreenSetResolution(w http.ResponseWriter, r *http.Request) {

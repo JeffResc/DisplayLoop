@@ -167,8 +167,15 @@
           });
         </script>
         {{end}}
-        <button type="submit" class="bg-gray-800 hover:bg-gray-700 text-white text-sm px-4 py-2 rounded-lg transition-colors">
-          Save
+        <div class="flex items-center gap-3">
+          <button type="submit" class="bg-gray-800 hover:bg-gray-700 text-white text-sm px-4 py-2 rounded-lg transition-colors">
+            Save
+          </button>
+        </div>
+      </form>
+      <form method="POST" action="/screens/{{.Screen.ID}}/offhours/apply-all" class="mt-2">
+        <button type="submit" class="text-sm text-gray-500 hover:text-gray-300 transition-colors">
+          Apply to all screens
         </button>
       </form>
     </section>
@@ -197,11 +204,16 @@
                  class="bg-gray-800 border border-gray-700 rounded-md px-2 py-1 text-sm text-gray-200 focus:outline-none focus:border-indigo-500 w-28">
         </div>
         {{end}}
-        <div class="pt-2">
+        <div class="pt-2 flex items-center gap-3">
           <button type="submit" class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
             Save Hours
           </button>
         </div>
+      </form>
+      <form method="POST" action="/screens/{{.Screen.ID}}/hours/apply-all" class="mt-2">
+        <button type="submit" class="text-sm text-gray-500 hover:text-gray-300 transition-colors">
+          Apply to all screens
+        </button>
       </form>
     </section>
 
