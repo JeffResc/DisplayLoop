@@ -1,15 +1,31 @@
 name: Release
 
 on:
-  release:
-    types: [published]
+  push:
+    branches: [main]
 
 permissions:
   contents: write
+  pull-requests: write
 
 jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+      upload_url: ${{ steps.release.outputs.upload_url }}
+    steps:
+      - name: Run release-please
+        id: release
+        uses: googleapis/release-please-action@v4
+        with:
+          release-type: go
+
   build:
     name: Build (${{ matrix.goarch }})
+    needs: release-please
+    if: ${{ needs.release-please.outputs.release_created }}
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -31,7 +47,7 @@ jobs:
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: 0
         run: |
-          VERSION="${{ github.event.release.tag_name }}"
+          VERSION="${{ needs.release-please.outputs.tag_name }}"
           COMMIT="${{ github.sha }}"
           go build \
             -ldflags "-s -w -X main.version=${VERSION} -X main.commit=${COMMIT}" \
@@ -43,7 +59,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          upload_url: ${{ github.event.release.upload_url }}
+          upload_url: ${{ needs.release-please.outputs.upload_url }}
           asset_path: ./displayloop
           asset_name: displayloop-${{ matrix.goos }}-${{ matrix.goarch }}
           asset_content_type: application/octet-stream
