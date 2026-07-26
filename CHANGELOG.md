@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.1](https://github.com/JeffResc/DisplayLoop/compare/v1.0.0...v1.0.1) (2026-07-26)
+
+
+### Bug Fixes
+
+* add renovate config with conventional commit messages for release-please compatibility ([23f43b1](https://github.com/JeffResc/DisplayLoop/commit/23f43b169fb87d30761746e9a14e958307db389f))
+
 ## 1.0.0 (2026-04-03)
 
 
