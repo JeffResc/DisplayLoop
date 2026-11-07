@@ -4,5 +4,13 @@
     "config:recommended",
     ":semanticCommits",
     ":semanticCommitTypeAll(fix)"
+  ],
+  "packageRules": [
+    {
+      "matchManagers": ["gomod"],
+      "matchDepNames": ["go"],
+      "matchDepTypes": ["golang"],
+      "rangeStrategy": "bump"
+    }
   ]
 }
