@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.0.2](https://github.com/JeffResc/DisplayLoop/compare/v1.0.1...v1.0.2) (2026-11-07)
+
+
+### Bug Fixes
+
+* **deps:** update go module directive to v1.27.3 ([85b4a25](https://github.com/JeffResc/DisplayLoop/commit/85b4a253a5c0ba428857b70906231c17444817ee))
+* **deps:** update go module directive to v1.27.3 ([aafdf3d](https://github.com/JeffResc/DisplayLoop/commit/aafdf3dc2bffe9b568c33e9c82891534f3273f2f))
+* **deps:** update module github.com/go-chi/chi/v5 to v5.5.0 ([95389dc](https://github.com/JeffResc/DisplayLoop/commit/95389dcc095c8848b3fd061d226f356d42d08d31))
+* **deps:** update module github.com/go-chi/chi/v5 to v5.5.0 ([4fb21a5](https://github.com/JeffResc/DisplayLoop/commit/4fb21a5bda0c16ea0eeaadd3267d203e0c5c62fd))
+* **deps:** update module modernc.org/sqlite to v1.62.0 ([ed3170c](https://github.com/JeffResc/DisplayLoop/commit/ed3170c1ea0c03ded1a4013e0b435ec12caf7473))
+* **deps:** update module modernc.org/sqlite to v1.62.0 ([ec8c9af](https://github.com/JeffResc/DisplayLoop/commit/ec8c9af654338eb9436c4b6680500df0113b85ad))
+
+
+### Miscellaneous
+
+* **renovate:** bump the go directive in go.mod to the latest Go release ([5cf5b7e](https://github.com/JeffResc/DisplayLoop/commit/5cf5b7e10df16bc23478925d6dcbfd9d5b9da524))
+
 ## [1.0.1](https://github.com/JeffResc/DisplayLoop/compare/v1.0.0...v1.0.1) (2026-07-26)
 
 
