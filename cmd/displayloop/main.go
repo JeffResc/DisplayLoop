@@ -100,6 +100,9 @@ func main() {
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
+	// Reject cross-origin state-changing requests (CSRF) using
+	// Sec-Fetch-Site, falling back to Origin vs Host.
+	r.Use(http.NewCrossOriginProtection().Handler)
 
 	// Pages
 	r.Get("/", app.HandleDashboard)
