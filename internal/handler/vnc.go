@@ -13,10 +13,10 @@ import (
 	"github.com/JeffResc/DisplayLoop/internal/db"
 )
 
-var vncUpgrader = websocket.Upgrader{
-	// Allow all origins — safe because x11vnc only binds to 127.0.0.1.
-	CheckOrigin: func(_ *http.Request) bool { return true },
-}
+// vncUpgrader uses gorilla/websocket's default CheckOrigin, which rejects
+// requests whose Origin host differs from the Host header. This proxy exposes
+// a password-less x11vnc session, so cross-origin pages must not reach it.
+var vncUpgrader = websocket.Upgrader{}
 
 // HandleVNCPage renders the noVNC viewer for a specific screen.
 func (a *App) HandleVNCPage(w http.ResponseWriter, r *http.Request) {
