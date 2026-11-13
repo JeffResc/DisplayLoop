@@ -126,7 +126,7 @@ func main() {
 	// Uploaded media (for image thumbnails)
 	r.Get("/media/{id}/{filename}", app.HandleMediaServe)
 
-	addr := fmt.Sprintf(":%d", cfg.Server.Port)
+	addr := fmt.Sprintf("127.0.0.1:%d", cfg.Server.Port)
 	srv := &http.Server{
 		Addr:    addr,
 		Handler: r,
@@ -138,7 +138,7 @@ func main() {
 	}
 
 	go func() {
-		log.Printf("DisplayLoop listening on http://localhost%s", addr)
+		log.Printf("DisplayLoop listening on http://%s", addr)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("server: %v", err)
 		}
