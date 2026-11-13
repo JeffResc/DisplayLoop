@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.0.3](https://github.com/JeffResc/DisplayLoop/compare/v1.0.2...v1.0.3) (2026-11-13)
+
+
+### Bug Fixes
+
+* **deps:** update go module directive to v1.27.4 ([bca376e](https://github.com/JeffResc/DisplayLoop/commit/bca376e2a85673f1e42f9a56b3fb35fad67b4a77))
+* **deps:** update go module directive to v1.27.4 ([3655a60](https://github.com/JeffResc/DisplayLoop/commit/3655a6043525e9115927d875b577a3bb9e3368e1))
+* **server:** listen only on 127.0.0.1 ([6670cd8](https://github.com/JeffResc/DisplayLoop/commit/6670cd8b2b9e7667034cca7ac51cc9714f3adf2b))
+* **server:** listen only on 127.0.0.1 so access goes through the cloudflared tunnel ([6a8e088](https://github.com/JeffResc/DisplayLoop/commit/6a8e08861f1ca2ebc7dc683007893ea5bddf4847))
+* **server:** reject cross-origin state-changing requests ([9a227f7](https://github.com/JeffResc/DisplayLoop/commit/9a227f716125494655da53d2113ff9e50ded1fa3))
+* **server:** reject cross-origin state-changing requests with http.CrossOriginProtection ([05b57ab](https://github.com/JeffResc/DisplayLoop/commit/05b57ab340deb4188ef624bb113223128bf77bd1))
+* **vnc:** reject cross-origin WebSocket upgrades to the VNC proxy ([9c2990a](https://github.com/JeffResc/DisplayLoop/commit/9c2990a8b0be049e0c7b82c3c7c5c5f5af31cde1))
+* **vnc:** reject cross-origin WebSocket upgrades to the VNC proxy ([784cd7c](https://github.com/JeffResc/DisplayLoop/commit/784cd7cbc3fc2d3e93f9beeec0a5f21cebb2880c))
+
 ## [1.0.2](https://github.com/JeffResc/DisplayLoop/compare/v1.0.1...v1.0.2) (2026-11-07)
 
 
